@@ -45,15 +45,15 @@ def hold(feed: pairs.Feed) -> None:
     HELD.feed = feed
 
 
-def connection_now() -> pairs.Connection:
+def connection_now() -> pairs.ConnectionRead:
     return pairs.connection_read(HELD.feed, NAME, ENTITLED)
 
 
-def datasets_now() -> pairs.Datasets:
+def datasets_now() -> pairs.DatasetsRead:
     return pairs.datasets_read(HELD.feed, CATALOGUE, VENUE, ENTITLED)
 
 
-@pages.page("/", "Connection", levels="admin", answers=pairs.Connection, name="read_connection")
+@pages.page("/", "Connection", levels="admin", answers=pairs.ConnectionRead, name="read_connection")
 def connection(request: meridian.Request) -> meridian.Response:
     """How the plugin reaches Kraken: the mode, no key needed, what Kraken
     entitles it to, the venue master's ID it resolved and the endpoints; its
@@ -62,7 +62,9 @@ def connection(request: meridian.Request) -> meridian.Response:
     return pages.answer("meridian/roles/data/pairs/connection.html", connection_now())
 
 
-@pages.page("/datasets", "Datasets", levels="admin", answers=pairs.Datasets, name="read_datasets")
+@pages.page(
+    "/datasets", "Datasets", levels="admin", answers=pairs.DatasetsRead, name="read_datasets"
+)
 def datasets(request: meridian.Request) -> meridian.Response:
     """What the plugin serves the lake: each dataset of its catalogue and
     whether it is licensed, what Kraken entitles it to, what it recorded

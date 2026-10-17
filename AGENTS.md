@@ -88,7 +88,8 @@ a deployment admin approves it.
   the data role's (meridian-design `spec/plugin-pages-follow-their-role.md`):
   Connection and Datasets, under Manage alone, drawn by the SDK's templates for
   a pairs venue (`meridian/roles/data/pairs/connection.html`, `datasets.html`,
-  extending the role's) from `pairs.Connection` and `pairs.Datasets`.
+  extending the role's) from `pairs.ConnectionRead` and
+  `pairs.DatasetsRead`.
   Their sections, rows, labels and "not set up yet" states are the role's
   and are never renamed, reordered or dropped; the venue's nuance goes only
   at the template's blocks (`vendor_rows`, `vendor_sections`, ...): the
