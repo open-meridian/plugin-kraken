@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kraken"
-version = "0.6.0"
+version = "0.7.0"
 description = "Kraken's public market data in an Open Meridian deployment's lake: a data plugin"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
@@ -13,7 +13,7 @@ requires-python = ">=3.11"
 # another. The Dockerfile's base is the same version. Kraken is reached with
 # the standard library's HTTP client, so there is no third-party dependency.
 dependencies = [
-  "open-meridian==0.29.0",
+  "open-meridian==0.30.0",
 ]
 
 [project.urls]
@@ -33,10 +33,9 @@ kraken = "kraken.__main__:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# The pages' templates and the synthetic exchanges, installed beside the code
-# that reads them.
+# The synthetic exchanges, installed beside the code that reads them.
 [tool.setuptools.package-data]
-kraken = ["templates/*.html", "synthetic/*.json", "synthetic/*.jsonl"]
+kraken = ["synthetic/*.json", "synthetic/*.jsonl"]
 
 # What this plugin says about itself, which `meridian plugin upload` sends and
 # a deployment admin approves before it runs (W8). Declarations, not grants.
@@ -63,7 +62,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["kraken"]
-known-local-folder = ["conftest", "venue_cases"]
+known-local-folder = ["venue_cases"]
 
 [tool.mypy]
 python_version = "3.11"

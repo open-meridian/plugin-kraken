@@ -32,16 +32,15 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from meridian.edge import RawStore
 from meridian.plugin.v1 import operations_pb2 as ops
+from meridian.roles.data.pairs import Feed, ProductMap
 from meridian.suites import Recorder
 from meridian.testing import PageClient
 
 from .convert import KrakenMarket
-from .dgm import Dgm
 from .page import hold, pages
-from .products import ProductMap
-from .raw import RawStore
-from .stream import Replayed, Socket
+from .stream import Replayed, Socket, Stream
 from .synthetic import Synthetic
 from .venue import Kraken
 
@@ -84,15 +83,16 @@ def _delivering(want: ops.ObservationsWantedEvent) -> Callable[[Any], Any]:
     return lambda _: want
 
 
-async def _worked() -> Dgm:
+async def _worked() -> Feed:
     lake = Recorder("kraken")
     lake.answer("ResolveIdentifier", _resolved)
     lake.answer("ResolveInstrument", _record)
     store = RawStore(Path(tempfile.mkdtemp(prefix="kraken-preview-")))
     synthetic = Synthetic()
     client = Kraken(store, transport=synthetic, clock_ns=lambda: NOW_NS)
-    dgm = Dgm(lake, KrakenMarket(client, "synthetic"), ProductMap(), clock_ns=lambda: NOW_NS)
-    await dgm.map_products()
+    feed = Feed(lake, KrakenMarket(client, "synthetic"), ProductMap(), clock_ns=lambda: NOW_NS,
+               stream_factory=Stream)  # fmt: skip
+    await feed.map_products()
     btc, eth = RECORDS
     for n in range(30):
         day = date(2026, 10, 9) - timedelta(days=n % 4)
@@ -104,7 +104,7 @@ async def _worked() -> Dgm:
             business_date=day.isoformat(),
         )
         lake.answer("ObservationsWanted", _delivering(want))
-        await lake.receive(observations_wanted=dgm.on_want)
+        await lake.receive(observations_wanted=feed.on_want)
     for n, subject in enumerate((btc, eth)):
         want = ops.ObservationsWantedEvent(
             want_id=f"WNT-L{n}",
@@ -114,25 +114,26 @@ async def _worked() -> Dgm:
             standing=True,
         )
         lake.answer("ObservationsWanted", _delivering(want))
-        await lake.receive(observations_wanted=dgm.on_want)
+        await lake.receive(observations_wanted=feed.on_want)
     first = synthetic.stream_sessions()[0]
 
     async def replayed(_: str) -> Socket:
         return Replayed(first, hold=False)
 
-    dgm.stream.connect = replayed
-    await dgm.stream.run(once=True)
-    await dgm.flush()
-    dgm.licensed = frozenset({dgm.dataset("daily")})
-    return dgm
+    feed.stream.retarget(feed.market.stream_address, replayed, feed.market.subscriptions)
+    await feed.stream.run(once=True)
+    await feed.flush()
+    feed.licensed = frozenset({feed.dataset("daily")})
+    return feed
 
 
-async def _fresh() -> Dgm:
+async def _fresh() -> Feed:
     """The plugin just started: nothing asked, nothing read of the venue."""
     lake = Recorder("kraken")
     store = RawStore(Path(tempfile.mkdtemp(prefix="kraken-preview-")))
     client = Kraken(store, transport=Synthetic(), clock_ns=lambda: NOW_NS)
-    return Dgm(lake, KrakenMarket(client, "synthetic"), ProductMap(), clock_ns=lambda: NOW_NS)
+    return Feed(lake, KrakenMarket(client, "synthetic"), ProductMap(), clock_ns=lambda: NOW_NS,
+                stream_factory=Stream)  # fmt: skip
 
 
 def main(argv: list[str]) -> int:

@@ -13,36 +13,42 @@ a deployment admin approves it.
   serves them, hears what the lake wants (`plugin.receive(observations_wanted=...,
   want_withdrawn=...)`) and keeps each standing want current, and keeps the
   venue's stream open while a standing want puts anything on it
-  (`dgm.keep_streaming`).
+  (`Feed.keep_streaming`).
 - **Kraken's vocabulary is read in one place.** `venue.py` is the HTTP
   client (the standard library's: no third-party dependency), every answer
-  kept as a raw record before anything is read from it (`raw.py`), an answer
+  kept as a raw record before anything is read from it (`meridian.edge.RawStore`), an answer
   good only with an empty `error` list (Kraken refuses under HTTP 200);
-  `convert.py` reads Kraken's answers into the venue's values (`market.py`):
+  `convert.py` reads Kraken's answers into the venue's values (`meridian.roles.data.pairs`'s):
   its legacy asset codes (`XXBT`, `ZUSD`) with the one global identifier its
   documentation supports, daily OHLC, the ticker, the level-1 book, trades
   and the v2 stream's messages, every
   figure a `Decimal` from Kraken's text (`json_decimal`, never `float`).
   `synthetic.py` answers instead of Kraken with sample data: the synthetic
   exchanges in `src/kraken/synthetic/`, or a developer's recorded ones.
-- **Everything from there to the lake is shared with meridian-coinbase, byte
-  for byte**: `market.py`, `dgm.py`, `products.py`, `raw.py`, `stream.py`
-  (the WebSocket, spoken with the standard library, and its reopening), the
-  pages (`page.py` and `templates/`, the venue's names read from
-  `convert.py`), and the tests `test_suite.py`, `test_dgm.py`, `test_page.py`, `test_raw.py`,
-  `test_stream.py` and `conftest.py`
-  (`make suite-same` holds them to the sibling's). Change one, change both,
-  in the same session; what differs between the venues belongs in
-  `convert.py`, `venue.py`, `synthetic.py`, `declaration.py`, and `tests/venue_cases.py`, the one test module that knows which
-  venue this is.
-- **The lake's rules, which the SDK's data suite holds** (`tests/test_suite.py`
-  runs it, unchanged from meridian-coinbase's): name every subject before
+- **What every data plugin of a pairs venue does is the SDK's**
+  (open-meridian 0.30.0; nothing is copied between plugins): naming each
+  subject, resolving, recording, answering wants and keeping them current,
+  and reading back the stream's gaps and a restart's are
+  `meridian.roles.data.pairs.Feed`, over the venue's values (`pairs.Asset`,
+  `Listed`, `Candle`, `Tick`, `Top`, `Print`) and its product map
+  (`pairs.ProductMap`, kept in storage); raw records are
+  `meridian.edge.RawStore`; the pages are the SDK's for a pairs venue
+  (`page.py` builds them with `pairs.connection_read` and `datasets_read`);
+  and `tests/test_data_role.py` runs the SDK's checks
+  (`meridian.roles.data.testing.PairsChecks`) against this plugin's
+  conversion. What is Kraken's own is here: `convert.py`, `venue.py`,
+  `stream.py` (the WebSocket, spoken with the standard library, and its
+  reopening: this plugin's transport, handed to the feed as its stream
+  factory), `synthetic.py`, `declared.py`, `declaration.py`, and
+  `tests/venue_cases.py`, the one test module that knows which venue this is.
+- **The lake's rules, which the SDK's data suite holds** (`tests/test_data_role.py`
+  runs it through the SDK's checks): name every subject before
   recording -- read its record (`resolve_instrument`, W3.6) and name
   Kraken's asset by its identifiers (Kraken's code, the global identifier
   Kraken's asset carries, another source's symbol that is Kraken's code),
   joining Kraken's identifiers to the record where it lacks them; never
   resolve an asset no subject is, so no record is minted per listed asset --
-  and resolve each quote asset of a subject's pairs (`products.py`: a
+  and resolve each quote asset of a subject's pairs (`pairs.ProductMap`: a
   documented fiat code by `iso4217`, a native coin by its SLIP-44 `caip19`,
   with its code as a `symbol` whose source is `kraken`; every other token is
   Kraken's own instrument, by its code alone, since Kraken states no network
@@ -62,9 +68,9 @@ a deployment admin approves it.
 - **Trades and quotes, streamed** (contract v19; the SDK carries typed
   operations only, so the stream is the plugin's). A standing want of the
   live or the trades dataset puts its subjects' products on the venue's
-  stream (`dgm.restream`); `convert.py` says what to subscribe and reads each
-  message, kept as a raw record first, into `market.Print` (a trade, with
-  the venue's side and whose side it is -- its `side` is the taker's, recorded as the aggressor as sent) and `market.Top` (the best
+  stream (`Feed.restream`); `convert.py` says what to subscribe and reads each
+  message, kept as a raw record first, into `pairs.Print` (a trade, with
+  the venue's side and whose side it is -- its `side` is the taker's, recorded as the aggressor as sent) and `pairs.Top` (the best
   bid and offer with sizes). The data plugin records every trade in `trades`
   (`plugin.record_trades`, never conflated) and each product's latest quote
   in `live` (`plugin.record_quotes`, at most once a second), in batches of at
@@ -73,22 +79,22 @@ a deployment admin approves it.
   `<product>:t:<trade ID>` and `<product>:q:<ns>`, no business date; a side
   with no order unset, never zero. Each time the stream opens again, the
   trades since the last one recorded are read back from the venue's REST
-  history (`market.trades`), so a drop leaves no gap; a trade heard twice is
+  history (`Market.trades`), so a drop leaves no gap; a trade heard twice is
   sent once. A case of the SDK's suite about something the venue never
   states (condition codes, a withdrawal, the side it does not name: a case
   about a field, `about_field`, from contract v20) is named in
   `tests/venue_cases.NOT_PRESENTED` with why, never faked.
 - **A data plugin shows no market data** (ruled 2026-10-03). Its pages are
   the data role's (meridian-design `spec/plugin-pages-follow-their-role.md`):
-  Connection and Datasets, under Manage alone, extending the SDK's role
-  templates (`meridian/roles/data/connection.html`, `datasets.html`) with
-  records extending `meridian.roles.data.ConnectionRead` and `DatasetsRead`.
+  Connection and Datasets, under Manage alone, drawn by the SDK's templates for
+  a pairs venue (`meridian/roles/data/pairs/connection.html`, `datasets.html`,
+  extending the role's) from `pairs.Connection` and `pairs.Datasets`.
   Their sections, rows, labels and "not set up yet" states are the role's
   and are never renamed, reordered or dropped; the venue's nuance goes only
   at the template's blocks (`vendor_rows`, `vendor_sections`, ...): the
   venue master's ID under "Key", the stream's session under "Stream", the
   product map in a section under the venue's name. Never a price, bar or
-  candle (`tests/test_page.py` holds every page to it). Each page declares
+  candle (the SDK's checks hold every page to it). Each page declares
   the record it renders (`answers=`), so each is a read tool on the
   deployment's MCP surface, `read_connection` and `read_datasets`, answering
   what the page shows under the role's field names; keep the two in step.
@@ -97,11 +103,11 @@ a deployment admin approves it.
   the role's (`page.figures_now`, `meridian.roles.data.figures`), sent on
   the heartbeat each minute.
 - **A restart's gap and its licences** (contract v20). Before a subject
-  goes back on the stream after a start, `dgm.backfill` reads the last trade
+  goes back on the stream after a start, `Feed.backfill` reads the last trade
   this instance recorded of it (`list_trades(..., latest_recorded=True)`)
   and records what the venue's history states after it
   (`meridian.roles.data.backfill_restart`), once per subject per process.
-  `dgm.read_licences` reads which of its own datasets a deployment admin
+  `Feed.read_licences` reads which of its own datasets a deployment admin
   has licensed (`list_datasets`), on start and each minute.
 - **Settings**: the data role's order; with one environment and no key,
   only `sample_data` (`meridian.sample_data()`), a developer's.
@@ -118,7 +124,7 @@ a deployment admin approves it.
 - Manage opens on the plugin's Summary, which core draws, with its raw
   records per kind. Build no summary page of your own.
 - **A plugin at the edge keeps its raw records in its own storage and moves
-  them past their window through the SDK** (`raw.tend`: a day's unit of
+  them past their window through the SDK** (`RawStore.tend`: a day's unit of
   `responses`, archived, kept or deleted as `responses_past_window` says,
   never by deleting files), and says what storage holds (`plugin.stored`).
   Declare no window setting of your own: the SDK declares
@@ -153,7 +159,7 @@ came in `meridian` 0.1.15; with an older one, the person runs
 - **`meridian plugin check --run-tests`** also runs the tests under `tests/`
   with pytest, in the plugin's `.venv` if it has one, otherwise with the
   `python3` on the PATH, which needs the plugin and pytest installed
-  (`pip install -e . pytest`). `tests/test_page.py` asks the pages under
+  (`pip install -e . pytest`). `tests/test_data_role.py` asks the pages under
   Manage, Open and View with `meridian.testing.PageClient`, and the operation
   they send against a stand-in for the sidecar; replace its tests as you
   replace the pages, and add one for each page and each operation.

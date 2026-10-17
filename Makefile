@@ -6,10 +6,9 @@ unexport GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR \
          GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
 
 .PHONY: help ci-local ci-local-deep ci-remote test lint check image e2e e2e-recorded \
-        preview suite-same fmt install-hooks
+        preview fmt install-hooks
 
 PLUGIN      := kraken
-PAIR        := ../plugin-coinbase
 DOCKER      := DOCKER_BUILDKIT=1 docker
 PY_VERSION  := 3.12
 CHECK       := meridian-$(PLUGIN)-check
@@ -61,15 +60,9 @@ export MERIDIAN_RUNTIME_IMAGE := $(RUNTIME_IMAGE)
 export E2E_DIR := $(CURDIR)/e2e
 E2E := docker compose -p $(PLUGIN)-e2e -f .e2e/harness/compose.yaml \
        -f .e2e/harness/plugins.yaml -f e2e/plugin.yaml
-# The files every pair keeps byte for byte: the suite, the data plugin's work
-# and its tests, and the data role's pages.
-SAME := src/$(PLUGIN)/market.py src/$(PLUGIN)/dgm.py src/$(PLUGIN)/products.py src/$(PLUGIN)/raw.py \
-        src/$(PLUGIN)/stream.py src/$(PLUGIN)/page.py src/$(PLUGIN)/templates/connection.html \
-        src/$(PLUGIN)/templates/datasets.html tests/test_suite.py tests/test_dgm.py \
-        tests/test_page.py tests/test_raw.py tests/test_stream.py tests/conftest.py
 
 help:
-	@echo "  make ci-local       every gate: lint, tests, plugin check, the image, e2e, and the pair held the same"
+	@echo "  make ci-local       every gate: lint, tests, plugin check, the image, e2e"
 	@echo "  make ci-remote      what ci.yaml runs: lint and tests"
 	@echo "  make test           the tests, in a container: the SDK's data suite among them"
 	@echo "  make lint           ruff and mypy, strict"
@@ -78,13 +71,12 @@ help:
 	@echo "  make e2e            the plugin, synthetic, on the plugin harness of the runtime it pins"
 	@echo "  make e2e-recorded   the same, replaying RECORDED=<dir>: a developer's recorded exchanges"
 	@echo "  make preview        write preview/: each page on synthetic data, linking the kit"
-	@echo "  make suite-same     the files the pair shares, the same in $(PAIR)"
 	@echo "  make fmt            apply the formatter"
 	@echo "  make install-hooks  point git at hooks/ so push fires ci-local"
 
 # Local green is the completion signal; CI is confirmation. Every CI job is a
 # target reachable from here.
-ci-local: ci-remote check image e2e suite-same
+ci-local: ci-remote check image e2e
 	@echo
 	@echo "ci-local: GREEN"
 
@@ -197,20 +189,6 @@ preview:
 		docker run --rm $(CHECK) python -m $(PLUGIN).preview $$page >preview/$$page.html || exit 1; \
 	done
 	@echo "preview: preview/connection.html, preview/datasets.html, preview/datasets-empty.html"
-
-# The pair passes one suite unchanged (plans/the-lake-prices-the-book, row 6):
-# the files it shares are held byte for byte to the sibling's, the package's
-# name aside. Where the sibling is not checked out (CI), there is nothing to
-# hold them to, and it says so.
-suite-same:
-	@if [ ! -d "$(PAIR)" ]; then echo "suite-same: $(PAIR) is not checked out beside this one; nothing to compare"; exit 0; fi; \
-	other=$$(sed -n 's/^PLUGIN *:= *//p' $(PAIR)/Makefile); differ=""; \
-	for file in $(SAME); do \
-		theirs=$$(echo "$$file" | sed "s#src/$(PLUGIN)/#src/$$other/#"); \
-		cmp -s "$$file" "$(PAIR)/$$theirs" || differ="$$differ $$file"; \
-	done; \
-	[ -z "$$differ" ] || { echo "suite-same FAILED: differs from $(PAIR):$$differ" >&2; exit 1; }; \
-	echo "suite-same OK: $(words $(SAME)) files the same as $(PAIR)'s"
 
 # Applied in a container and written back, because the host has no toolchain.
 fmt:

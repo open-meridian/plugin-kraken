@@ -1,9 +1,11 @@
 """A venue's stream: one WebSocket, spoken with the standard library, and kept
 open -- reconnected after a drop, the gap filled from the venue's history.
 
-The same module in meridian-coinbase and meridian-kraken. What is said on the
-stream -- the subscription, and what each message means -- is each plugin's
-`convert.py`; the socket, the reconnecting and the pacing are here, once.
+This plugin's own transport, which the SDK leaves to it (open-meridian
+0.30.0: a plugin stays able to use an API, FIX or another protocol), handed
+to the SDK's feed as its stream factory. What is said on the stream -- the
+subscription, and what each message means -- is `convert.py`'s; the socket,
+the reconnecting and the pacing are here.
 
 **The socket** (RFC 6455, client side): a TLS connection, the HTTP upgrade
 with its key checked against the answer's accept, text frames masked as a
@@ -16,8 +18,8 @@ plugin depends on nothing but the SDK, so there is no WebSocket library.
 to a minute, reset once a connection has stayed up a minute: inside Kraken's
 150 reconnects in ten minutes per IP, and Coinbase's. Each time it opens,
 `opened` is called before any message is read, so the plugin can fill the gap
-from the venue's REST history (dgm.py: the trades after the last one it
-recorded), and readers catch up from the lake by the watermark they last
+from the venue's REST history (the SDK's feed: the trades after the last
+one it recorded), and readers catch up from the lake by the watermark they last
 saw.
 
 **Synthetic mode**: `Replayed` answers the subscription with messages shaped

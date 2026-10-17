@@ -1,4 +1,5 @@
-"""Kraken's answers, read into the venue's values (market.py): the one place
+"""Kraken's answers, read into the venue's values (the SDK's
+`meridian.roles.data.pairs`): the one place
 Kraken's vocabulary is read.
 
 Kraken names everything its own way: assets by legacy codes (`XXBT` for
@@ -61,24 +62,19 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from .market import (
+from meridian.roles.data import (
     NANOS_PER_SECOND,
     SECONDS_PER_DAY,
-    TAKER,
-    Asset,
-    Candle,
     Endpoint,
     Limits,
-    Listed,
-    Print,
     Session,
-    Tick,
-    Top,
     Unread,
     day_start,
     json_decimal,
     number,
 )
+from meridian.roles.data.pairs import TAKER, Asset, Candle, Listed, Print, Tick, Top
+
 from .stream import Replayed, Socket, websocket
 from .venue import (
     BURST,

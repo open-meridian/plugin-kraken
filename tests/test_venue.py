@@ -9,8 +9,8 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
+from meridian.edge import RawStore
 
-from kraken.raw import RawStore
 from kraken.synthetic import Recorded, Synthetic
 from kraken.venue import Kraken, RateLimiter, Response, VenueError, result_for
 

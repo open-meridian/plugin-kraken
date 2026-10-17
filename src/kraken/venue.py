@@ -17,7 +17,7 @@ Kraken's `EGeneral:Too many requests` under HTTP 200 -- is waited out, 2, 4,
 **Errors under HTTP 200.** Kraken answers most refusals with status 200 and a
 non-empty `error` list: an answer is good only with an empty one.
 
-**Every response is a raw record first** (raw.py), kept exactly as its bytes
+**Every response is a raw record first** (`meridian.edge.RawStore`), kept exactly as its bytes
 arrived, with its status and freshness headers, before anything is read from
 it. A body is parsed with `json_decimal`: Kraken sends its figures as
 strings, read as Decimals, and a JSON number, where one appears, from its
@@ -39,8 +39,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from .market import Health, json_decimal
-from .raw import RawStore
+from meridian.edge import RawStore
+from meridian.roles.data import Health, json_decimal
 
 REST = "https://api.kraken.com/0/public"
 STREAM = "wss://ws.kraken.com/v2"
