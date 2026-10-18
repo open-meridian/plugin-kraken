@@ -19,9 +19,8 @@ from __future__ import annotations
 import meridian
 from meridian import Declaration, RecordKind, Storage
 
-from .declared import CATALOGUE, SETTINGS
+from .declared import CATALOGUE, KIND, LABEL, SETTINGS, WINDOW_DAYS
 from .page import TITLE, pages
-from .raw import KIND, LABEL, WINDOW_DAYS
 
 #: The port its pages are served on, on loopback, where its sidecar forwards.
 PORT = 8000

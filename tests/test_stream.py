@@ -1,8 +1,8 @@
 """The stream: the WebSocket spoken with the standard library, and kept open.
 
-The same file in meridian-coinbase and meridian-kraken (`make suite-same`).
-The socket is held to RFC 6455 over in-memory streams (a frame as a server
-sends one, and as a client must); the stream's reopening, its waits, its
+This plugin's own transport, which the SDK leaves to it. The socket is held
+to RFC 6455 over in-memory streams (a frame as a server sends one, and as a
+client must); the stream's reopening, its waits, its
 silence and its names wanted, over replayed connections.
 """
 
@@ -14,9 +14,7 @@ from typing import Any
 
 import pytest
 
-import venue_cases as venue
-
-stream = venue.stream
+from kraken import stream
 
 
 class _Writer:

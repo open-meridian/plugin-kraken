@@ -2,11 +2,13 @@
 
 It connects to the sidecar it is launched beside, declaring its catalogue,
 its storage and its settings (declaration.py) and its pages (page.py), and
-serves them. Then it maps Kraken's products to the deployment's instruments
-(products.py), hears what the lake wants of it and records it, and keeps each
-standing want current (dgm.py) -- from contract v19 its trades and best bid
-and offer from the venue's stream, kept open while a standing want puts
-anything on it (stream.py) -- until stopped. Everything goes through the
+serves them. Then the SDK's work for a pairs venue
+(`meridian.roles.data.pairs.Feed`, over Kraken's conversion in convert.py)
+maps Kraken's products to the deployment's instruments, hears what the
+lake wants of it and records it, and keeps each standing want current --
+from contract v19 its trades and best bid and offer from the venue's stream,
+kept open while a standing want puts anything on it (stream.py, this
+plugin's transport) -- until stopped. Everything goes through the
 sidecar; nothing but Kraken's public REST and its stream are called, and with sample data
 not even that (synthetic.py).
 
@@ -25,15 +27,15 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 
 import meridian
+from meridian.edge import RawStore, storage_root
+from meridian.roles.data import cancelled
+from meridian.roles.data.pairs import Feed, ProductMap
 
-from . import raw
 from .convert import KrakenMarket
 from .declaration import DECLARATION, PORT
-from .declared import SAMPLE_DATA
-from .dgm import Dgm, cancelled
+from .declared import KIND, SAMPLE_DATA, WINDOW_DAYS
 from .page import figures_now, hold, pages
-from .products import ProductMap
-from .raw import RawStore, storage_root, tend
+from .stream import Stream
 from .synthetic import Recorded, Synthetic
 from .venue import Kraken
 
@@ -63,7 +65,7 @@ def product_map(store: RawStore, mode: str) -> ProductMap:
 
 
 async def watch_settings(
-    plugin: meridian.Plugin, dgm: Dgm, store: RawStore, configured: asyncio.Event
+    plugin: meridian.Plugin, feed: Feed, store: RawStore, configured: asyncio.Event
 ) -> None:
     """Each delivery of the settings: the source switched where synthetic
     mode changed, its own product map read back from storage, and each day's
@@ -74,27 +76,27 @@ async def watch_settings(
     read before anything is wanted."""
     while True:
         try:
-            await _apply_settings(plugin, dgm, store, configured)
+            await _apply_settings(plugin, feed, store, configured)
         except Exception as failed:  # noqa: BLE001 - the stream broke: said, and watched again
             log.warning("the settings' stream broke, watching again: %s", failed)
         await asyncio.sleep(2)
 
 
 async def _apply_settings(
-    plugin: meridian.Plugin, dgm: Dgm, store: RawStore, configured: asyncio.Event
+    plugin: meridian.Plugin, feed: Feed, store: RawStore, configured: asyncio.Event
 ) -> None:
     async for delivered in plugin.settings():
         values = delivered.values
         log.info("settings delivered: sample data %s", values.get(SAMPLE_DATA))
         synthetic = values.get(SAMPLE_DATA) is True
-        mode = dgm.market.session.mode
+        mode = feed.market.session.mode
         if synthetic != (mode != "live"):
             chosen = market(store, synthetic)
-            dgm.use(chosen, product_map(store, chosen.session.mode))
+            feed.use(chosen, product_map(store, chosen.session.mode))
             log.info("answering from %s", chosen.session.mode)
-        if synthetic and not dgm.products.read_at_ns:
+        if synthetic and not feed.products.read_at_ns:
             try:
-                await dgm.map_products()
+                await feed.map_products()
             except Exception as failed:  # noqa: BLE001 - said on its pages, tried on a want
                 log.warning("the synthetic product map was not made: %s", failed)
         configured.set()
@@ -102,34 +104,33 @@ async def _apply_settings(
 
 
 async def tend_now(plugin: meridian.Plugin, store: RawStore, values: Mapping[str, object]) -> None:
-    window = values.get(f"{raw.KIND}_window_days")
-    past = values.get(f"{raw.KIND}_past_window")
-    await tend(
+    window = values.get(f"{KIND}_window_days")
+    past = values.get(f"{KIND}_past_window")
+    await store.tend(
         plugin,
-        store,
-        window if isinstance(window, int) else raw.WINDOW_DAYS,
+        window if isinstance(window, int) else WINDOW_DAYS,
         past if isinstance(past, str) else "kept",
         datetime.now(UTC).date(),
     )
 
 
-async def hear_wants(plugin: meridian.Plugin, dgm: Dgm, configured: asyncio.Event) -> None:
+async def hear_wants(plugin: meridian.Plugin, feed: Feed, configured: asyncio.Event) -> None:
     """What the lake wants, once the settings have said where to answer from."""
     await configured.wait()
-    await plugin.receive(observations_wanted=dgm.on_want, want_withdrawn=dgm.on_withdrawn)
+    await plugin.receive(observations_wanted=feed.on_want, want_withdrawn=feed.on_withdrawn)
 
 
-async def report_health(plugin: meridian.Plugin, dgm: Dgm) -> None:
+async def report_health(plugin: meridian.Plugin, feed: Feed) -> None:
     """Each minute: its datasets' licences read again (contract v20), and
     on the heartbeat whether Kraken answers, with the data role's figures."""
     while True:
         try:
-            await dgm.read_licences()
+            await feed.read_licences()
         except meridian.MeridianError as failed:
             log.warning("licences not read: %s", failed)
-        health = dgm.market.session.health
+        health = feed.market.session.health
         healthy = health.last_ok_ns >= health.last_failed_ns
-        detail = f"{dgm.market.name} answers" if healthy else health.last_error
+        detail = f"{feed.market.name} answers" if healthy else health.last_error
         try:
             await plugin.report(healthy=healthy, detail=detail[:200], figures=figures_now())
         except (meridian.MeridianError, ValueError) as failed:
@@ -157,18 +158,18 @@ async def run() -> None:
     # A version registers exactly what it was uploaded with (contract v25).
     async with await meridian.connect(declaration=DECLARATION) as plugin:
         log.info("registered as %s, roles %s", plugin.identity.instance_id, plugin.identity.roles)
-        store = RawStore(storage_root())
+        store = RawStore(storage_root(), KIND)
         chosen = market(store, synthetic=False)
-        dgm = Dgm(plugin, chosen, product_map(store, chosen.session.mode))
-        hold(dgm)
+        feed = Feed(plugin, chosen, product_map(store, chosen.session.mode), stream_factory=Stream)
+        hold(feed)
         served = pages.serve(plugin, port)
         configured = asyncio.Event()
         tasks = [
-            asyncio.create_task(watch_settings(plugin, dgm, store, configured)),
-            asyncio.create_task(hear_wants(plugin, dgm, configured)),
-            asyncio.create_task(dgm.keep_current()),
-            asyncio.create_task(dgm.keep_streaming()),
-            asyncio.create_task(report_health(plugin, dgm)),
+            asyncio.create_task(watch_settings(plugin, feed, store, configured)),
+            asyncio.create_task(hear_wants(plugin, feed, configured)),
+            asyncio.create_task(feed.keep_current()),
+            asyncio.create_task(feed.keep_streaming()),
+            asyncio.create_task(report_health(plugin, feed)),
         ]
         for task in tasks:
             task.add_done_callback(_said)

@@ -123,7 +123,7 @@ class Synthetic:
 
 
 class Recorded:
-    """Answers from a developer's recorded raw records (raw.py's files under a
+    """Answers from a developer's recorded raw records (`meridian.edge.RawStore`'s files under a
     `responses/` directory): the latest good answer kept for each call and
     pair, and for OHLC every entry kept for the pair, after the `since`
     asked."""

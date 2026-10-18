@@ -27,13 +27,15 @@ legal advice). `daily` reaches back 720 days, the most `OHLC` gives.
 
 `venue_id` is empty: the venue master's ID for Kraken (which has no MIC) is minted by
 the platform, not known to the code a catalogue is declared from, so each row
-names the venue by the ID it resolves at run time (dgm.py), and the
+names the venue by the ID it resolves at run time (the SDK's
+`meridian.roles.data.pairs.Feed`), and the
 catalogue names none (README, "The venue").
 
 **Its storage**: one kind of raw record, Kraken's responses as received,
-kept a month by default (raw.py); the SDK declares the kind's two window
-settings. **Its settings**: sample data, a developer's (synthetic.py). No
-secret: Kraken's public market data needs no key.
+kept a month by default (`KIND`, kept by the SDK's
+`meridian.edge.RawStore`); the SDK declares the kind's two window settings.
+**Its settings**: sample data, a developer's (synthetic.py). No secret:
+Kraken's public market data needs no key.
 """
 
 import meridian
@@ -41,6 +43,13 @@ from meridian import DatasetDeclaration, DatasetLicence
 
 VENDOR = "Kraken"
 SAMPLE_DATA = "sample_data"
+
+#: Its one kind of raw record, Kraken's responses as received: a month of
+#: them by default, enough to re-convert a row a person questions. An admin
+#: sets the window in Settings.
+KIND = "responses"
+LABEL = "Raw responses"
+WINDOW_DAYS = 30
 
 #: Its settings, in the data role's order (spec/plugin-pages-follow-their-role):
 #: no environment and no credential -- Kraken's public market data has one
