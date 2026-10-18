@@ -17,11 +17,12 @@ IMAGE       ?= $(PLUGIN):local
 # meridian-python checkout carries exactly that version -- one not yet
 # published, being tried -- it is built from there (SDK_REPO): the tests' and
 # the check's containers install it from source, and the plugin's image is
-# built on a base made from it. Otherwise both come from PyPI and ghcr.io.
+# built on a base made from it. Otherwise both come from PyPI and ghcr.io,
+# the base as the Dockerfile names it, by digest: what an upload builds on.
 SDK_VERSION := $(shell sed -n 's/.*"open-meridian==\([0-9][0-9.]*\)".*/\1/p' pyproject.toml)
 SDK_REPO    ?= $(if $(shell grep -s '^version = "$(SDK_VERSION)"$$' ../meridian-python/pyproject.toml),../meridian-python,)
 SDK_CONTEXT := $(if $(SDK_REPO),--build-context sdk=$(SDK_REPO),)
-BASE        ?= $(if $(SDK_REPO),plugin-python:$(SDK_VERSION)-local,ghcr.io/open-meridian/plugin-python:$(SDK_VERSION))
+BASE        ?= $(if $(SDK_REPO),plugin-python:$(SDK_VERSION)-local,$(shell sed -n 's/^ARG BASE=//p' Dockerfile))
 PLUGIN_CHECK := meridian-$(PLUGIN)-plugin-check
 # The meridian check.yaml holds the plugin to, read from there so the two
 # cannot drift.
