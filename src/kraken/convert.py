@@ -50,6 +50,16 @@ documentation), its figures JSON numbers read from their own text; the
 `ask`, `ask_qty`) at its `timestamp`. A `trade` snapshot, the pair's last 50,
 comes on subscribing. Every message is kept as a raw record before it is
 read, but a heartbeat, which states nothing.
+
+**Depth** (open question 232, ruled 2026-10-17): the book's levels, which no
+lake kind holds yet, are kept as raw records and read into nothing. Kraken's
+v2 `book` channel, asked for at `DEPTH` levels a side, sends a `snapshot` of
+`bids` and `asks`, each level a `price` and a `qty`, then `update`s of the
+levels changed, a `qty` of 0 a level gone, at their `timestamp`; each
+message's `checksum`, a CRC32 of the top ten levels, proves the book rebuilt
+from them. Kept whole, the snapshot and every update rebuild the book at any
+moment, so a depth kind placed later converts them with nothing lost. It is
+asked for in its own subscription, as the trades and the ticker are.
 """
 
 from __future__ import annotations
@@ -118,6 +128,9 @@ V2_NAMES = {"XBT": "BTC", "XDG": "DOGE"}
 #: How many pages of Kraken's trades a gap or a range is read through:
 #: 10,000 trades.
 TRADE_PAGES = 10
+#: The book's levels a side the stream's depth is asked for, kept raw (open
+#: question 232): Kraken's default, of its 10, 25, 100, 500 or 1000.
+DEPTH = 10
 _SIDES = {"b": "buy", "s": "sell", "buy": "buy", "sell": "sell"}
 
 LIMITS = Limits(
@@ -367,7 +380,9 @@ class KrakenMarket:
             mode=mode,
             endpoints=(
                 Endpoint("REST", address, "asset pairs, daily OHLC, ticker, depth, trades"),
-                Endpoint("WebSocket", stream, "trades, and the best bid and offer"),
+                Endpoint(
+                    "WebSocket", stream, "trades, the best bid and offer, and depth (kept raw)"
+                ),
             ),
             limits=LIMITS,
             health=client.health,
@@ -394,12 +409,14 @@ class KrakenMarket:
         trade = {"channel": "trade", "symbol": list(names), "snapshot": True}
         ticker = {"channel": "ticker", "symbol": list(names), "event_trigger": "bbo",
                   "snapshot": True}  # fmt: skip
-        return [json.dumps({"method": "subscribe", "params": p}) for p in (trade, ticker)]
+        book = {"channel": "book", "symbol": list(names), "depth": DEPTH, "snapshot": True}
+        return [json.dumps({"method": "subscribe", "params": p}) for p in (trade, ticker, book)]
 
     def heard(self, text: str, received_ns: int) -> list[Print | Top]:
         """One message of the stream, kept first; its trades or its tickers
-        read. A heartbeat is neither kept nor read; the status, a
-        subscription's answer or an error is kept, and states neither."""
+        read. A heartbeat is neither kept nor read; the book's depth, the
+        status, a subscription's answer or an error is kept, and read into no
+        row."""
         try:
             body = json_decimal(text)
         except ValueError:

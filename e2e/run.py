@@ -40,7 +40,8 @@ harness (contracts v18 to v20), with sample data, beside a reader
 8. Parity: the plugin's two read tools answer through the deployment's MCP
    what its two pages show, the data role's fields under its names, the
    stream's session among them, and each dataset licensed (contract v20).
-9. Its raw responses are in its granted storage, and `store lake` prints
+9. Its raw responses are in its granted storage, the book's depth among
+   them as the stream sent it (open question 232), and `store lake` prints
    each row kept, numbered with no holes in each dataset, the wants asked,
    answered, declined and withdrawn, and the venue's miss.
 10. A restart's gap (contract v20): with BTC's products on the stream still,
@@ -82,6 +83,8 @@ LAST = {"XXBTZUSD": "61988.90000", "XBTUSDC": "62006.75"}
 EUR_CLOSE = "1.0925"
 #: The assets no subject is, for which the first build minted a record each.
 UNASKED = r"(?<![A-Z])(X?ETH|TKN|QDT|PLY)(?![A-Z])"
+#: The raw files the stream's depth is kept in (open question 232).
+DEPTH_FILES = ("book.jsonl",)
 #: The day the synthetic stream's trades are on, as a UTC range.
 TRADES_FROM, TRADES_UNTIL = 1791590400 * 10**9, 1791676800 * 10**9
 #: Each trade the synthetic stream and history state, by its row key, with
@@ -409,6 +412,16 @@ def run():
                    "from meridian import edge; "
                    "print(sum(1 for p in (edge.storage_dir() / 'responses').rglob('*') if p.is_file()))")
     must(int(kept.stdout.strip() or 0) >= 5, f"step 9, raw responses in storage: {kept.stdout}")
+    # Depth (open question 232): the book's messages kept raw in the stream's
+    # files, in no lake kind; a recording kept before 0.8.0 holds none.
+    if EXACT:
+        depth = compose("exec", "-T", VENUE, "python", "-c",
+                        "import json; from meridian import edge; "
+                        "print(json.dumps(sorted({p.name for p in "
+                        "(edge.storage_dir() / 'responses').rglob('stream/*.jsonl') "
+                        "if p.stat().st_size})))")
+        must(set(DEPTH_FILES) <= set(json.loads(depth.stdout.strip() or "[]")),
+             f"step 9, depth kept raw: {depth.stdout}")
     names = {k: v for k, v in {usdc: "USDC", btc: "BTC", usd: "USD", eur: "EUR"}.items() if k}
 
     def lake():

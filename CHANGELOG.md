@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.8.0
+
+On open-meridian 0.31.0, contract v26 (the v26 plan's §8: "Coinbase and
+Kraken: trade recording to the lake. Depth per open question 232").
+
+- **Trades to the lake, as they were.** Every trade of a streamed pair goes
+  to `trades` through the SDK's data-role helpers
+  (`meridian.roles.data.pairs.Feed`, `plugin.record_trades`), the best bid
+  and offer to `live`; the catalogue is unchanged. Who reads them is the
+  deployment's grants: trades and quotes for `signal` and `ems`, conflated
+  prices and bars for `reporting`. 0.31.0's new helpers (listings, custody
+  pages, the Trader's charges, event groups, pricing) replace nothing here.
+- **Depth, kept raw** (open question 232, ruled 2026-10-17). The stream's
+  pairs are subscribed to Kraken's v2 `book` channel too, at its default of
+  10 levels a side (`convert.DEPTH`), in a subscription of its own; each
+  `snapshot` and `update` is kept whole as a raw record under `responses/`
+  (`stream/book.jsonl`) and read into no row, since no lake kind holds
+  depth: it is converted once the market-data intent places one. The
+  Connection page's stream endpoint says so. Size `responses_window_days`
+  with it in mind.
+- **The data suite's v26 cases.** `queries-the-lake-within-bounds` passes
+  on the SDK's producer; `reports-an-event-group` and
+  `reports-a-flag-the-venue-does-not-state` are not presented, with why
+  (Kraken lists no event contract).
+- **Tests**: the depth subscription, the depth kept whole and read into
+  nothing, on synthetic exchanges (a snapshot and an update, and the
+  reconnected stream's new snapshot), each synthetic checksum Kraken's own
+  over the book it leaves; the e2e's step 9 finds the depth in storage.
+- **The pins**: open-meridian 0.31.0, as released on PyPI, and
+  plugin-python:0.31.0 by tag and digest (`sha256:e041f83c...f5d2`) in the
+  Dockerfile; core v26's runtime and harness (17a13a2, merged as 648e25f,
+  chart 0.1.308) by digest; `meridian` 0.1.48 in check.yaml.
+
 ## 0.7.0 (2026-10-19)
 
 On open-meridian 0.30.0, contract 25 unchanged: the data role's work is

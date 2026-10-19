@@ -5,17 +5,18 @@ plugin. It records each pair's daily close and bar, its last trade price and
 best bid and offer, and from contract v19 every trade and the best bid and
 offer with their sizes, streamed from Kraken's v2 WebSocket, for the
 instruments a deployment's readers ask about, every figure exactly as Kraken
-stated it and every code converted at the edge. No key: Kraken's market data
-is public.
+stated it and every code converted at the edge; and it keeps the order
+book's depth from that WebSocket as raw records, until the lake has a kind
+for it. No key: Kraken's market data is public.
 
 It is one of the lake's crypto pair, with
 [meridian-coinbase](https://github.com/open-meridian/plugin-coinbase): each runs the SDK's
 data suite and its checks for a pairs venue unchanged against its own conversion
 (meridian-design `plans/the-lake-prices-the-book.md`, rows 6 and 19); what the two do alike is
-the SDK's (`meridian.roles.data.pairs`, open-meridian 0.30.0), never copied
+the SDK's (`meridian.roles.data.pairs`, open-meridian 0.31.0), never copied
 between them.
 
-**Status.** 0.7.0, built on open-meridian 0.30.0 (contract v25: its whole declaration, and docs/, which a deployment shows on its Documentation tab; its work the SDK's role helpers), holding the
+**Status.** 0.8.0, built on open-meridian 0.31.0 (contract v26: the data suite's v26 cases; the book's depth kept raw, open question 232; its work the SDK's role helpers), holding the
 role `data`. Not
 released, uploaded or launched anywhere.
 
@@ -99,8 +100,9 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
 - **Trades and quotes, streamed** (contract v19). A standing want of the
   live or the trades dataset -- a reader following an instrument's latest
   quote, say -- puts the pairs of its subjects on Kraken's v2 WebSocket
-  (`wss://ws.kraken.com/v2`: `trade`, and `ticker` on each change of the
-  best bid and offer, public), kept open while any want stands. A pair is
+  (`wss://ws.kraken.com/v2`: `trade`, `ticker` on each change of the best
+  bid and offer, and `book` for depth, all public), kept open while any
+  want stands. A pair is
   named there by its `wsname`, with bitcoin's `XBT` as `BTC` and `XDG` as
   `DOGE`, and its figures are JSON numbers, read from their own text. Every
   trade is recorded in `trades`, never conflated, and each pair's best bid
@@ -113,6 +115,16 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
   ID (`XXBTZUSD:t:110938306`), valid from its time, with no business date; a
   quote by its pair and instant, a side with no order left unset, never
   zero.
+- **Depth, kept raw** (open question 232, ruled 2026-10-17). No lake kind
+  holds the book's levels yet, so the pairs on the stream are subscribed to
+  `book` as well, at Kraken's default of 10 levels a side (`convert.DEPTH`),
+  in a subscription of its own: a `snapshot`, then every `update` (each
+  level's new `qty`, 0 a level gone), each with its `checksum`, the CRC32 of
+  the top ten levels. Each message is kept whole as a raw record and read
+  into no row: the snapshot and its updates rebuild the book at any moment,
+  checked by the checksum, so they are converted, losing nothing, once the
+  market-data intent places a depth kind. An admin sizes the raw responses'
+  window for it.
 - **Kept open, with no gap.** A stream that drops, or says nothing for 30
   seconds, is opened again after a wait doubling from one second to a
   minute, inside Kraken's 150 reconnects in ten minutes per IP; each time it
@@ -145,7 +157,7 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
   Decimal): the row is left unrecorded and counted on the Datasets page, its
   raw record kept. The SDK's `Price` carries no price left not known.
 - **What the suite asks and Kraken never states.** Of the SDK's data
-  suite's 26 cases (contract v22), six are not presented, each named with
+  suite's 35 cases (contract v26), eleven are not presented, each named with
   why in `tests/venue_cases.py`, as the suite allows of a case about a kind
   of data (`about`) or a field its source never states (`about_field`,
   contract v20): `the-makers-side-inverted` (Kraken names the side that
@@ -155,7 +167,9 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
   (Kraken's feed never withdraws a trade it has stated), and contract v22's
   `reads-a-calendar` and `asks-for-a-settlement-date` (a venue trading
   24/7: it reads no settlement calendar and never computes a settlement
-  date). The other 20 pass unchanged, `the-takers-side-stated` among them.
+  date), and contract v23's three outcome cases and v26's two event-group
+  cases (Kraken lists no event contract). The other 24 pass unchanged,
+  `the-takers-side-stated` among them, three answered by the SDK.
 
 ## Kraken's terms
 
@@ -229,8 +243,9 @@ storage the deployment grants the plugin before anything is read from it,
 with the request that asked for it, its status and freshness headers, and
 when it arrived (`meridian.edge.RawStore`); a live answer is a line of its day's file, added
 only when it changed, and each message of the stream a line of its day's
-file for its channel (a heartbeat, which states nothing, is not kept). Each
-row names its raw record (`RawRecordRef`) and
+file for its channel (a heartbeat, which states nothing, is not kept): the
+book's depth among them, `stream/book.jsonl`, the only place it is kept
+until a depth kind is placed. Each row names its raw record (`RawRecordRef`) and
 where in it the row came from. Kept in units of a UTC day under
 `responses/`, moved past the window through the SDK.
 
@@ -251,7 +266,7 @@ until withdrawn, bitcoin's pairs streamed -- the synthetic venue dropping the
 first connection, the plugin opening it again and reading back the trades it
 missed -- every trade recorded once with its aggressor, read over the day and
 after the reader's watermark and heard, and each pair's latest quote with
-its sizes, both read tools answering what the pages show, and `store lake`
+its sizes, the book's depth kept raw, both read tools answering what the pages show, and `store lake`
 numbering each dataset's rows with no holes (`e2e/run.py` says each step).
 
     make e2e-recorded RECORDED=<dir> DAY=<a day it holds>

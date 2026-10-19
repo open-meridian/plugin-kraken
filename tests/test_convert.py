@@ -5,6 +5,7 @@ sends."""
 from __future__ import annotations
 
 import json
+import zlib
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -16,7 +17,7 @@ from meridian.roles.data.pairs import Print, Top
 
 from kraken import convert
 from kraken.synthetic import Synthetic
-from kraken.venue import Kraken, RateLimiter
+from kraken.venue import STREAM, Kraken, RateLimiter
 
 PAIRS = Synthetic().held["pairs"]
 
@@ -167,12 +168,68 @@ def test_the_v2_streams_trades_and_ticker_are_read_and_kept_first(tmp_path: Path
     assert sorted(p.stem for p in tmp_path.rglob("*.jsonl")) == ["status", "ticker", "trade"]
 
 
-def test_the_subscription_asks_for_trades_and_each_change_of_the_best(tmp_path: Path) -> None:
-    trade, ticker = (json.loads(s) for s in _market(tmp_path).subscriptions(["BTC/USD"]))
+def test_the_subscription_asks_for_trades_each_change_of_the_best_and_depth(
+    tmp_path: Path,
+) -> None:
+    trade, ticker, book = (json.loads(s) for s in _market(tmp_path).subscriptions(["BTC/USD"]))
     assert trade == {"method": "subscribe", "params": {"channel": "trade",
                      "symbol": ["BTC/USD"], "snapshot": True}}  # fmt: skip
     assert ticker["params"] == {"channel": "ticker", "symbol": ["BTC/USD"],
                                 "event_trigger": "bbo", "snapshot": True}  # fmt: skip
+    assert book["params"] == {"channel": "book", "symbol": ["BTC/USD"], "depth": 10,
+                              "snapshot": True}  # fmt: skip
+
+
+def test_depth_is_kept_raw_whole_and_read_into_no_row(tmp_path: Path) -> None:
+    """Open question 232: the book's snapshot and each update kept exactly as
+    sent, a line each, and nothing recorded from them."""
+    market = _market(tmp_path)
+    snapshot = ('{"channel":"book","type":"snapshot","data":[{"symbol":"BTC/USD",'
+                '"bids":[{"price":61990.10,"qty":0.84}],"asks":[{"price":61990.20,"qty":0.5}],'
+                '"checksum":1}]}')  # fmt: skip
+    update = ('{"channel":"book","type":"update","data":[{"symbol":"BTC/USD",'
+              '"bids":[{"price":61990.10,"qty":0.00000000}],"asks":[],"checksum":2,'
+              '"timestamp":"2026-10-10T11:59:51.300000Z"}]}')  # fmt: skip
+    assert market.heard(snapshot, 10) == [] and market.heard(update, 11) == []
+    [kept] = tmp_path.rglob("*.jsonl")
+    assert kept.name == "book.jsonl" and kept.parent.name == "stream"
+    key = kept.relative_to(tmp_path).as_posix()
+    for line, text, at in ((0, snapshot, 10), (1, update, 11)):
+        record = market.client.store.get(f"{key}#{line}")
+        assert record is not None
+        assert (record["body"], record["call"], record["received_at_ns"]) == (text, "stream", at)
+        assert record["venue"] == "kraken" and record["request"]["url"] == STREAM
+
+
+def test_the_synthetic_books_checksums_hold() -> None:
+    """Kraken's checksum (its v2 documentation): the top ten asks, lowest
+    first, then the top ten bids, highest first, each price and quantity at
+    the pair's decimals with the point and leading zeros dropped, as a CRC32;
+    each synthetic update's over the book it leaves. So a depth converter
+    proved on the synthetic stream later proves its rebuilt book too."""
+    decimals = PAIRS["XXBTZUSD"]["pair_decimals"], PAIRS["XXBTZUSD"]["lot_decimals"]
+
+    def text(figure: Decimal, places: int) -> str:
+        return f"{figure:.{places}f}".replace(".", "").lstrip("0")
+
+    sessions = Synthetic().stream_sessions()
+    books = [json_decimal(m) for s in sessions for m in s if '"channel":"book","type"' in m]
+    assert [b["type"] for b in books] == ["snapshot", "update", "snapshot"]
+    book: dict[str, dict[Decimal, Decimal]] = {}
+    for message in books:
+        [item] = message["data"]
+        if message["type"] == "snapshot":
+            book = {"bids": {}, "asks": {}}
+        for side in ("bids", "asks"):
+            for level in item[side]:
+                if level["qty"]:
+                    book[side][level["price"]] = level["qty"]
+                else:
+                    book[side].pop(level["price"], None)
+        asks = sorted(book["asks"].items())[:10]
+        bids = sorted(book["bids"].items(), reverse=True)[:10]
+        said = "".join(text(p, decimals[0]) + text(q, decimals[1]) for p, q in asks + bids)
+        assert zlib.crc32(said.encode()) == item["checksum"]
 
 
 def test_trades_are_read_from_the_time_asked_each_once(tmp_path: Path) -> None:
