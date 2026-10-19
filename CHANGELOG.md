@@ -31,7 +31,8 @@ Kraken: trade recording to the lake. Depth per open question 232").
 - **The pins**: open-meridian 0.31.0, as released on PyPI, and
   plugin-python:0.31.0 by tag and digest (`sha256:e041f83c...f5d2`) in the
   Dockerfile; core v26's runtime and harness (17a13a2, merged as 648e25f,
-  chart 0.1.308) by digest; `meridian` 0.1.48 in check.yaml.
+  chart 0.1.308) by digest; `meridian` 0.1.49 in check.yaml, the first
+  to carry contract v26's suites.
 
 ## 0.7.0 (2026-10-19)
 
