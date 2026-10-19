@@ -69,3 +69,9 @@ Kraken's answers, as received, in the storage your deployment gives the
 plugin, for 30 days by default, each price naming the answer it came from.
 Past that window, a day's answers are archived, kept or deleted as you set
 it.
+
+Your deployment's lake has no place for an order book's levels yet, so the
+plugin records no depth there. Among its answers is the order book's depth
+from the live feed, ten levels a side for each pair it streams: the book
+when the feed opens, then every change. A busy pair's depth takes more
+storage than its trades, so set the window with it in mind.

@@ -171,6 +171,10 @@ NOT_PRESENTED = {
     "records-an-outcome": "Kraken lists no event contract: no outcome to record",
     "restates-a-disputed-outcome": "Kraken lists no event contract: no outcome disputed",
     "records-a-partial-payout": "Kraken lists no event contract: no payout to settle",
+    "reports-an-event-group": "Kraken lists no event contract: no event to group",
+    "reports-a-flag-the-venue-does-not-state": (
+        "Kraken lists no event contract: no event whose flags go unstated"
+    ),
 }
 #: A restart's gap (contract v20): the last trade the lake holds of BASE's
 #: dollar pair, by its pair, trade ID and time; and the trades the venue's
