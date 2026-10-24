@@ -353,6 +353,19 @@ def run():
     must(streamed["stream_opened"] >= (2 if EXACT else 1)
          and streamed["stream_dropped"] >= (1 if EXACT else 0) and streamed["stream_messages"] > 0,
          f"step 7, the stream opened, dropped and opened again: {streamed}")
+    # Contract v27: the stream's heartbeat, which confirms every quote in
+    # force, recorded as the live dataset's liveness, never a row; the reader
+    # hears it, and the lake's listing holds it beside the declared delay,
+    # none for a real-time feed.
+    def alive():
+        heard = [h for h in read("/heard")["liveness"] if h["dataset"] == f"{VENUE}:live"]
+        listed = {d["dataset"]: d for d in read("/datasets")["datasets"]}
+        log(f"liveness heard: {heard[-3:]}; listed: {listed}")
+        live = listed.get(f"{VENUE}:live", {})
+        return (heard, live) if heard and live.get("liveness") else None
+    heard, live = until(90, alive, "step 7, the live dataset's liveness was not recorded")
+    must(all(h["alive_at_ns"] > 0 for h in heard) and live["declared_delay_ns"] == 0,
+         f"step 7, the stream's liveness, and no declared delay: {heard[-3:]}, {live}")
 
     # 8. Parity: each read tool answers what its page shows.
     connection = call(named["read_connection"], {}, "read", "unchanged")["data"]

@@ -26,7 +26,7 @@ a deployment admin approves it.
   `synthetic.py` answers instead of Kraken with sample data: the synthetic
   exchanges in `src/kraken/synthetic/`, or a developer's recorded ones.
 - **What every data plugin of a pairs venue does is the SDK's**
-  (open-meridian 0.31.0; nothing is copied between plugins): naming each
+  (open-meridian 0.32.2; nothing is copied between plugins): naming each
   subject, resolving, recording, answering wants and keeping them current,
   and reading back the stream's gaps and a restart's are
   `meridian.roles.data.pairs.Feed`, over the venue's values (`pairs.Asset`,
@@ -84,6 +84,15 @@ a deployment admin approves it.
   states (condition codes, a withdrawal, the side it does not name: a case
   about a field, `about_field`, from contract v20) is named in
   `tests/venue_cases.NOT_PRESENTED` with why, never faked.
+- **Liveness and latency** (contract v27; ruling 418). Every stream message,
+  the venue's heartbeat among them, is the stream's sign of life: the SDK's
+  `pairs.Feed` records it once a pass as the `live` dataset's liveness
+  (`Wants.liveness`, `RecordLiveness`), never as a row; the suite's
+  `records-a-datasets-liveness` is presented on a heartbeat alone
+  (`tests/test_data_role.py`, `venue_cases.HEARTBEAT`). The feed is real
+  time: declare no `declared_delay_ns`. `reports-its-feed-delay` is not
+  presented (`PAIRS_NOT_PRESENTED`: core receives ReportLatency from
+  contract v28, ruling 515; ruling 518); never hand-send `report_latency`.
 - **Depth, kept raw** (open question 232, ruled 2026-10-17). No lake kind
   holds the book's levels, so the stream's pairs are also subscribed to
   `book` at `convert.DEPTH` levels a side (its own subscription, as the

@@ -152,6 +152,10 @@ TICKER = (
     '"volume":100.5,"vwap":62400.0,"low":61900.0,"high":62600.0,"change":40.1,'
     '"change_pct":0.06,"trades":1234,"timestamp":"2026-10-10T11:59:58.500000Z"}]}'
 )
+#: The v2 stream's heartbeat, stating no price (contract v27): the stream's
+#: sign of life, recorded as the live dataset's liveness, which confirms
+#: every quote in force.
+HEARTBEAT = '{"channel":"heartbeat"}'
 #: Each case of the suite about trades or quotes, the stream's message that
 #: presents it.
 STREAM_CASES = {"a-trade-recorded": TAKER_BUY, "the-takers-side-stated": TAKER_BUY,
