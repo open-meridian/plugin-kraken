@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.9.0
+
+On open-meridian 0.32.2, contract v27 (the v27 plan's §C, liveness; and §G:
+v27 pins, `plugin check` clean, docs).
+
+- **The stream's liveness** (ruling 418). Kraken sends only on a change; its
+  v2 `heartbeat`, about once a second when nothing else is sent, and every other message, is the stream's sign of life. The SDK's
+  `pairs.Feed` records it once a pass as the `live` dataset's liveness
+  (`Wants.liveness`, `RecordLiveness`), confirming every quote in force,
+  never as a row. `records-a-datasets-liveness` is presented on a
+  heartbeat alone, as the case states it (`venue_cases.HEARTBEAT`), and a
+  test holds that the heartbeat records the liveness once and no row.
+- **No declared delay.** Kraken's public feed is real time, so no dataset sets
+  `declared_delay_ns`; each row's age at the edge is not recorded.
+- **The data suite's v27 cases.** Of 44, nineteen are not presented, each with
+  why: the seven rates cases (a pairs venue publishes no rates) and
+  `reports-its-feed-delay` ("core receives ReportLatency from contract v28,
+  ruling 515", ruling 518) from the SDK's `PAIRS_NOT_PRESENTED`, beside this
+  venue's own; `queries-the-lake-within-bounds`, now about trades, keeps
+  the SDK's producer. The other 25 pass, three answered by the SDK.
+- **The licence's new fields are not set.** SDK 0.32.2's `DatasetLicence`
+  attribution fields are left unset: core v27 registers a catalogue
+  without them, so setting them would be refused. The terms text, the
+  Datasets page and `docs/terms.md` are unchanged.
+- **The e2e** (step 7): the reader hears the `live` dataset's liveness and
+  reads it on the lake's dataset listing, beside no declared delay.
+- **The pins**: open-meridian 0.32.2, as released on PyPI, and
+  plugin-python:0.32.2 by tag and digest (`sha256:2235d96d...020b80`) in the
+  Dockerfile; core v27's runtime and harness (a5da59a, merged as 6d346b3,
+  chart 0.1.310) by digest; `meridian` 0.1.52 in check.yaml, carrying
+  contract v27's suites.
+
 ## 0.8.0
 
 On open-meridian 0.31.0, contract v26 (the v26 plan's §8: "Coinbase and

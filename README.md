@@ -13,10 +13,10 @@ It is one of the lake's crypto pair, with
 [meridian-coinbase](https://github.com/open-meridian/plugin-coinbase): each runs the SDK's
 data suite and its checks for a pairs venue unchanged against its own conversion
 (meridian-design `plans/the-lake-prices-the-book.md`, rows 6 and 19); what the two do alike is
-the SDK's (`meridian.roles.data.pairs`, open-meridian 0.31.0), never copied
+the SDK's (`meridian.roles.data.pairs`, open-meridian 0.32.2), never copied
 between them.
 
-**Status.** 0.8.0, built on open-meridian 0.31.0 (contract v26: the data suite's v26 cases; the book's depth kept raw, open question 232; its work the SDK's role helpers), holding the
+**Status.** 0.9.0, built on open-meridian 0.32.2 (contract v27: the stream's liveness recorded; the data suite's v27 cases; the book's depth kept raw, open question 232; its work the SDK's role helpers), holding the
 role `data`. Not
 released, uploaded or launched anywhere.
 
@@ -141,6 +141,15 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
   (`ListTrades` with `latest_recorded`) and records the trades Kraken's
   history states after it (`meridian.roles.data.backfill_restart`), once per
   subject; a trade recorded again is answered unchanged by its row key.
+- **The stream's liveness** (contract v27; ruling 418). Kraken's v2 feed
+  sends only on a change, and a `heartbeat` about once a second when
+  nothing else is sent: every message heard, the heartbeat among them, is
+  the stream's sign of life, recorded once a pass as the `live` dataset's
+  liveness (`RecordLiveness`, through the SDK's `pairs.Feed` and
+  `Wants.liveness`), which confirms every quote in force; never a row. The
+  feed is real time, so no dataset declares a delay (`declared_delay_ns`
+  is 0). Each row's age at the edge is not recorded: core receives
+  ReportLatency from contract v28 (rulings 515 and 518).
 - **Its licences** (contract v20): it reads which of its own datasets a
   deployment admin has licensed, on start and each minute, so its Datasets
   page says so exactly.
@@ -157,8 +166,9 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
   Decimal): the row is left unrecorded and counted on the Datasets page, its
   raw record kept. The SDK's `Price` carries no price left not known.
 - **What the suite asks and Kraken never states.** Of the SDK's data
-  suite's 35 cases (contract v26), eleven are not presented, each named with
-  why in `tests/venue_cases.py`, as the suite allows of a case about a kind
+  suite's 44 cases (contract v27), nineteen are not presented, each named
+  with why (`tests/venue_cases.py`, and the SDK's `PAIRS_NOT_PRESENTED` for
+  what no pairs venue presents), as the suite allows of a case about a kind
   of data (`about`) or a field its source never states (`about_field`,
   contract v20): `the-makers-side-inverted` (Kraken names the side that
   took liquidity, never the resting order's; Coinbase presents it),
@@ -168,8 +178,13 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
   `reads-a-calendar` and `asks-for-a-settlement-date` (a venue trading
   24/7: it reads no settlement calendar and never computes a settlement
   date), and contract v23's three outcome cases and v26's two event-group
-  cases (Kraken lists no event contract). The other 24 pass unchanged,
-  `the-takers-side-stated` among them, three answered by the SDK.
+  cases (Kraken lists no event contract), and contract v27's seven rates
+  cases (a pairs venue publishes no rates) and `reports-its-feed-delay`
+  (core receives ReportLatency from contract v28, ruling 515; not presented
+  under ruling 518). The other 25 pass, `the-takers-side-stated` among
+  them, three answered by the SDK, and `records-a-datasets-liveness` on the
+  stream's heartbeat alone, the case as it is stated (the SDK's producer
+  states a ticker).
 
 ## Kraken's terms
 
