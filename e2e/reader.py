@@ -173,7 +173,7 @@ class Reader:
                                   "liveness": [liveness_json(item) for item in d.liveness]}
                                  for d in answer.datasets]}
         if path == "/trades":
-            asked = {"subjects": [ops.SubjectRef(entity_id=s) for s in query["subject"]]}
+            asked = {"subjects": [meridian.SubjectRef(entity_id=s) for s in query["subject"]]}
             if query.get("after"):
                 partitions = [ops.PartitionSequence(partition=p.rsplit(":", 1)[0],
                                                      sequence=int(p.rsplit(":", 1)[1]))
@@ -195,13 +195,13 @@ class Reader:
             return {"trades": rows, "watermark": watermark, "unanswered": unanswered}
         if path == "/quotes":
             answer = await self.plugin.list_quotes(
-                subjects=[ops.SubjectRef(entity_id=s) for s in query["subject"]])
+                subjects=[meridian.SubjectRef(entity_id=s) for s in query["subject"]])
             return {"quotes": [quote_json(q) for q in answer.quotes],
                     "unanswered": [{"subject": u.subject.entity_id, "dataset": u.dataset,
                                     "reason": ops.UnansweredReason.Name(u.reason)}
                                    for u in answer.unanswered]}
         if path == "/prices":
-            asked = {"subjects": [ops.SubjectRef(entity_id=s) for s in query["subject"]]}
+            asked = {"subjects": [meridian.SubjectRef(entity_id=s) for s in query["subject"]]}
             if one("dataset"):
                 asked["sources"] = SourceChoice(named=[one("dataset")])
             if one("kind"):

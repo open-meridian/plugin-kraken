@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 
 import meridian
 from meridian.edge import RawStore, storage_root
+from meridian.roles import Latency
 from meridian.roles.data import cancelled
 from meridian.roles.data.pairs import Feed, ProductMap
 
@@ -161,6 +162,11 @@ async def run() -> None:
         store = RawStore(storage_root(), KIND)
         chosen = market(store, synthetic=False)
         feed = Feed(plugin, chosen, product_map(store, chosen.session.mode), stream_factory=Stream)
+        # Contract v28 (ruling 518): each row streamed or kept current has
+        # its age at the edge recorded, its feed delay, reported every 10
+        # seconds (ReportLatency).
+        latency = Latency(plugin)
+        feed.wants.latency = latency
         hold(feed)
         served = pages.serve(plugin, port)
         configured = asyncio.Event()
@@ -170,6 +176,7 @@ async def run() -> None:
             asyncio.create_task(feed.keep_current()),
             asyncio.create_task(feed.keep_streaming()),
             asyncio.create_task(report_health(plugin, feed)),
+            asyncio.create_task(latency.run()),
         ]
         for task in tasks:
             task.add_done_callback(_said)
