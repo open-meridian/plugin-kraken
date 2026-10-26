@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.10.0
+
+On open-meridian 0.33.1, contract v28 (plugin-common-v28), on core v28's
+harness.
+
+- **The feed delay, reported** (ruling 518, required again from contract
+  v28): `__main__` gives the SDK's `pairs.Feed` a `roles.Latency`, so each
+  row streamed or kept current has its age at the edge recorded, reported
+  every 10 seconds (`ReportLatency`); `reports-its-feed-delay` is presented
+  by the SDK's producer on the streamed ticker.
+- **A crossed quote recorded invalid** (ruling 424):
+  `a-crossed-quote-is-recorded-invalid` is presented on a ticker whose best
+  bid is above its best offer (`venue_cases.CROSSED_TICKER`), judged by the
+  SDK's edge checks.
+- **Not presented** (ruling 602): the option-chain, filings, holdings,
+  dividend and rating cases (the SDK's `PAIRS_NOT_PRESENTED`), and
+  `a-duplicate-is-recorded-suspicious` and `rows-after-a-gap-are-suspicious`:
+  Kraken's v2 ticker numbers no message.
+- **`meridian plugin migrate`** (to_0_33_0, to_0_33_1): e2e/reader.py's
+  SubjectRefs are `meridian.SubjectRef` (ruling 599).
+- **The pins:** open-meridian 0.33.1 and plugin-python:0.33.1 by tag and
+  digest; core v28's runtime and harness at `8def82a` (chart 0.1.313) by
+  digest; `meridian` stays 0.1.52 in check.yaml.
+- The README's "Not released" line is gone.
+
 ## 0.9.0
 
 On open-meridian 0.32.2, contract v27 (the v27 plan's §C, liveness; and §G:

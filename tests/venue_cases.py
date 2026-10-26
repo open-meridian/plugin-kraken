@@ -152,6 +152,9 @@ TICKER = (
     '"volume":100.5,"vwap":62400.0,"low":61900.0,"high":62600.0,"change":40.1,'
     '"change_pct":0.06,"trades":1234,"timestamp":"2026-10-10T11:59:58.500000Z"}]}'
 )
+#: Contract v28's crossed quote (ruling 424): BASE's dollar ticker with its
+#: best bid above its best offer, recorded invalid by the edge.
+CROSSED_TICKER = TICKER.replace('"bid":62510.0,', '"bid":62510.2,')
 #: The v2 stream's heartbeat, stating no price (contract v27): the stream's
 #: sign of life, recorded as the live dataset's liveness, which confirms
 #: every quote in force.
@@ -159,7 +162,8 @@ HEARTBEAT = '{"channel":"heartbeat"}'
 #: Each case of the suite about trades or quotes, the stream's message that
 #: presents it.
 STREAM_CASES = {"a-trade-recorded": TAKER_BUY, "the-takers-side-stated": TAKER_BUY,
-                "a-standing-want-streamed": TAKER_BUY, "a-quote-recorded": TICKER}  # fmt: skip
+                "a-standing-want-streamed": TAKER_BUY, "a-quote-recorded": TICKER,
+                "a-crossed-quote-is-recorded-invalid": CROSSED_TICKER}  # fmt: skip
 #: Why each case Kraken never presents is not (meridian.suites: a case about a
 #: kind of data, `about`, the plugin never publishes).
 NOT_PRESENTED = {
@@ -179,6 +183,12 @@ NOT_PRESENTED = {
     "reports-a-flag-the-venue-does-not-state": (
         "Kraken lists no event contract: no event whose flags go unstated"
     ),
+    # Contract v28 (about quotes, ruling 602), named through a table: meridian
+    # 0.1.52's check holds contract v27's suites.
+    **{
+        case: "Kraken's v2 ticker numbers no message: no sequence to repeat or skip"
+        for case in ("a-duplicate-is-recorded-suspicious", "rows-after-a-gap-are-suspicious")
+    },
 }
 #: A restart's gap (contract v20): the last trade the lake holds of BASE's
 #: dollar pair, by its pair, trade ID and time; and the trades the venue's

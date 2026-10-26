@@ -13,12 +13,11 @@ It is one of the lake's crypto pair, with
 [meridian-coinbase](https://github.com/open-meridian/plugin-coinbase): each runs the SDK's
 data suite and its checks for a pairs venue unchanged against its own conversion
 (meridian-design `plans/the-lake-prices-the-book.md`, rows 6 and 19); what the two do alike is
-the SDK's (`meridian.roles.data.pairs`, open-meridian 0.32.2), never copied
+the SDK's (`meridian.roles.data.pairs`, open-meridian 0.33.1), never copied
 between them.
 
-**Status.** 0.9.0, built on open-meridian 0.32.2 (contract v27: the stream's liveness recorded; the data suite's v27 cases; the book's depth kept raw, open question 232; its work the SDK's role helpers), holding the
-role `data`. Not
-released, uploaded or launched anywhere.
+**Status.** 0.10.0, built on open-meridian 0.33.1 (contract v28: its feed delay reported, a crossed quote recorded invalid at the edge; contract v27: the stream's liveness recorded; the data suite's v27 cases; the book's depth kept raw, open question 232; its work the SDK's role helpers), holding the
+role `data`.
 
 ## What it does
 
@@ -148,8 +147,8 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
   liveness (`RecordLiveness`, through the SDK's `pairs.Feed` and
   `Wants.liveness`), which confirms every quote in force; never a row. The
   feed is real time, so no dataset declares a delay (`declared_delay_ns`
-  is 0). Each row's age at the edge is not recorded: core receives
-  ReportLatency from contract v28 (rulings 515 and 518).
+  is 0). From 0.10.0 each row streamed or kept current has its age at the
+  edge recorded, its feed delay, reported every 10 seconds (ruling 518).
 - **Its licences** (contract v20): it reads which of its own datasets a
   deployment admin has licensed, on start and each minute, so its Datasets
   page says so exactly.
@@ -179,9 +178,11 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
   24/7: it reads no settlement calendar and never computes a settlement
   date), and contract v23's three outcome cases and v26's two event-group
   cases (Kraken lists no event contract), and contract v27's seven rates
-  cases (a pairs venue publishes no rates) and `reports-its-feed-delay`
-  (core receives ReportLatency from contract v28, ruling 515; not presented
-  under ruling 518). The other 25 pass, `the-takers-side-stated` among
+  cases (a pairs venue publishes no rates) and contract v28's
+  option-chain, filings, holdings, dividend and rating cases (the SDK's
+  list), and its duplicate and gap cases (Kraken's v2 ticker numbers no
+  message). The other 27 pass, `the-takers-side-stated`,
+  `reports-its-feed-delay` and `a-crossed-quote-is-recorded-invalid` among
   them, three answered by the SDK, and `records-a-datasets-liveness` on the
   stream's heartbeat alone, the case as it is stated (the SDK's producer
   states a ticker).
