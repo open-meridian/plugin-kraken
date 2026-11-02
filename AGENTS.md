@@ -8,12 +8,14 @@ public REST and v2 WebSocket (no key): what it may publish and subscribe to come
 from the role `pyproject.toml` declares under `[tool.meridian]` (`data`), once
 a deployment admin approves it.
 
-- `src/kraken/__main__.py` connects to the sidecar declaring the catalogue,
-  the storage and the settings (`declaration.py`) and the pages (`page.py`),
-  serves them, hears what the lake wants (`plugin.receive(observations_wanted=...,
-  want_withdrawn=...)`) and keeps each standing want current, and keeps the
-  venue's stream open while a standing want puts anything on it
-  (`Feed.keep_streaming`).
+- `src/kraken/__main__.py` holds the data role's class, `Lake` (the SDK's
+  `pairs.Feed`, open-meridian 0.35: each role one class), and registers it
+  with `meridian.run`, declaring the catalogue, the storage and the settings
+  (`declaration.py`) and the pages (`page.py`): `run` serves them, delivers
+  the settings to `Lake.on_settings`, hands what the lake wants to
+  `Lake.on_observations_wanted` and `on_want_withdrawn`, and runs `Lake.run`,
+  which keeps each standing want current and the venue's stream open while
+  a standing want puts anything on it (the SDK's `pairs.supervised`).
 - **Kraken's vocabulary is read in one place.** `venue.py` is the HTTP
   client (the standard library's: no third-party dependency), every answer
   kept as a raw record before anything is read from it (`meridian.edge.RawStore`), an answer
@@ -26,7 +28,7 @@ a deployment admin approves it.
   `synthetic.py` answers instead of Kraken with sample data: the synthetic
   exchanges in `src/kraken/synthetic/`, or a developer's recorded ones.
 - **What every data plugin of a pairs venue does is the SDK's**
-  (open-meridian 0.33.1; nothing is copied between plugins): naming each
+  (open-meridian 0.35.1; nothing is copied between plugins): naming each
   subject, resolving, recording, answering wants and keeping them current,
   and reading back the stream's gaps and a restart's are
   `meridian.roles.data.pairs.Feed`, over the venue's values (`pairs.Asset`,
@@ -37,9 +39,9 @@ a deployment admin approves it.
   and `tests/test_data_role.py` runs the SDK's checks
   (`meridian.roles.data.testing.PairsChecks`) against this plugin's
   conversion. What is Kraken's own is here: `convert.py`, `venue.py`,
-  `stream.py` (the WebSocket, spoken with the standard library, and its
-  reopening: this plugin's transport, handed to the feed as its stream
-  factory), `synthetic.py`, `declared.py`, `declaration.py`, and
+  `stream.py` (the WebSocket, spoken with the standard library: this
+  plugin's transport, which the SDK's supervisor keeps open, ruling 1027),
+  `synthetic.py`, `declared.py`, `declaration.py`, and
   `tests/venue_cases.py`, the one test module that knows which venue this is.
 - **The lake's rules, which the SDK's data suite holds** (`tests/test_data_role.py`
   runs it through the SDK's checks): name every subject before

@@ -43,6 +43,7 @@ import meridian
 from meridian import Interface, Page, SourceChoice
 from meridian.operations import as_decimal, as_money
 from meridian.plugin.v1 import operations_pb2 as ops
+from meridian.roles import custody, reporting, signal
 
 PORT = 8088
 LOOP = asyncio.new_event_loop()
@@ -118,20 +119,26 @@ def price_json(price):
 
 
 class Reader:
-    def __init__(self, plugin):
-        self.plugin = plugin
+    """What the stand-in holds and answers: the records it named, what it
+    heard, and its three role classes (SDK 0.35: each role one class, its
+    acts made through it), which share it."""
+
+    def __init__(self):
         self.heard = []
         self.trades = []
         self.quotes = []
         self.liveness = []
-        self.following = None
+        self.following = ()
         self.ids = {}
+        self.custody = Custody(self)
+        self.reporting = Reporting(self)
+        self.signal = Signal(self)
 
     async def resolve(self):
         for name, identifiers in ASKED.items():
             if name not in self.ids:
                 description, currency = STATED.get(name, ("", ""))
-                found = await self.plugin.resolve_identifier(
+                found = await self.custody.resolve_identifier(
                     identifiers=identifiers,
                     stated_description=description,
                     stated_currency=currency,
@@ -141,34 +148,23 @@ class Reader:
                 self.ids[name] = found.instrument_id
         return dict(self.ids)
 
-    async def on_price(self, heard):
-        self.heard.append(price_json(heard.message.price))
-
-    async def on_trade(self, heard):
-        self.trades.append(trade_json(heard.message.trade, getattr(heard, "caught_up", False)))
-
-    async def on_quote(self, heard):
-        self.quotes.append(quote_json(heard.message.quote))
-
-    async def on_liveness(self, heard):
-        self.liveness.append(liveness_json(heard.message.liveness))
-
     async def answer(self, path, query):
         one = lambda name: query.get(name, [""])[0]  # noqa: E731
         if path == "/resolve":
             return await self.resolve()
         if path == "/follow":
-            if self.following is None:
-                self.following = asyncio.ensure_future(
-                    self.plugin.receive(prices_recorded=self.on_price, trades_recorded=self.on_trade,
-                                        quotes_recorded=self.on_quote,
-                                        liveness_recorded=self.on_liveness, subjects=query["subject"]))
+            if not self.following:
+                # The one stream opened again naming them, reading what the
+                # lake holds of them, as a receive naming them did (SDK
+                # 0.35, ruling 1013).
+                self.following = tuple(query["subject"])
+                self.reporting.hear_again()
             return {"following": query["subject"]}
         if path == "/heard":
             return {"heard": self.heard, "trades": self.trades, "quotes": self.quotes,
                     "liveness": self.liveness}
         if path == "/datasets":
-            answer = await self.plugin.list_datasets()
+            answer = await self.reporting.list_datasets()
             return {"datasets": [{"dataset": d.dataset, "declared_delay_ns": d.declared_delay_ns,
                                   "liveness": [liveness_json(item) for item in d.liveness]}
                                  for d in answer.datasets]}
@@ -183,7 +179,7 @@ class Reader:
                 asked["valid_from_ns"], asked["valid_until_ns"] = int(one("from")), int(one("until"))
             rows, cursor, watermark, unanswered = [], "", None, []
             while True:
-                answer = await self.plugin.list_trades(**asked, page_size=500, cursor=cursor)
+                answer = await self.signal.list_trades(**asked, page_size=500, cursor=cursor)
                 rows += [trade_json(t) for t in answer.trades]
                 watermark = watermark_json(answer.watermark)
                 unanswered += [{"subject": u.subject.entity_id, "dataset": u.dataset,
@@ -194,7 +190,7 @@ class Reader:
                     break
             return {"trades": rows, "watermark": watermark, "unanswered": unanswered}
         if path == "/quotes":
-            answer = await self.plugin.list_quotes(
+            answer = await self.signal.list_quotes(
                 subjects=[meridian.SubjectRef(entity_id=s) for s in query["subject"]])
             return {"quotes": [quote_json(q) for q in answer.quotes],
                     "unanswered": [{"subject": u.subject.entity_id, "dataset": u.dataset,
@@ -208,7 +204,7 @@ class Reader:
                 asked["kinds"] = [one("kind")]
             if one("date"):
                 asked["business_date"] = one("date")
-            answer = await self.plugin.list_prices(**asked)
+            answer = await self.reporting.list_prices(**asked)
             return {
                 "prices": [price_json(p) for p in answer.prices],
                 "unanswered": [{"subject": u.subject.entity_id, "dataset": u.dataset,
@@ -216,6 +212,49 @@ class Reader:
                                for u in answer.unanswered],
             }
         return {"page": "the e2e's reader"}
+
+
+class Custody(custody.Role):
+    """`custody`: names the instruments it asks about as a custodian's book
+    would, by resolving their identifiers."""
+
+    def __init__(self, reader):
+        self.reader = reader
+
+
+class Reporting(reporting.Role):
+    """`reporting`: reads prices and the datasets, and hears the prices
+    recorded for the subjects it follows and the datasets' liveness."""
+
+    def __init__(self, reader):
+        self.reader = reader
+
+    def subjects(self):
+        return self.reader.following
+
+    async def on_prices_recorded(self, heard):
+        self.reader.heard.append(price_json(heard.message.price))
+
+    async def on_liveness_recorded(self, heard):
+        self.reader.liveness.append(liveness_json(heard.message.liveness))
+
+
+class Signal(signal.Role):
+    """`signal`: reads and hears trades and quotes, which `reporting` does
+    not read (contract v19)."""
+
+    def __init__(self, reader):
+        self.reader = reader
+
+    def subjects(self):
+        return self.reader.following
+
+    async def on_trades_recorded(self, heard):
+        self.reader.trades.append(
+            trade_json(heard.message.trade, getattr(heard, "caught_up", False)))
+
+    async def on_quotes_recorded(self, heard):
+        self.reader.quotes.append(quote_json(heard.message.quote))
 
 
 def serve(reader):
@@ -253,17 +292,18 @@ DECLARATION = meridian.Declaration(
 )
 
 
-async def main():
-    plugin = await meridian.connect(
-        # Contract v25: what the stand-in registers is its declaration.
-        declaration=DECLARATION
-    )
-    reader = Reader(plugin)
+def main():
+    reader = Reader()
     threading.Thread(target=serve, args=(reader,), daemon=True).start()
-    while True:
-        await asyncio.sleep(3600)
+    # SDK 0.35: its role classes registered on one connection, which hears
+    # one stream for them, until the harness stops it.
+    LOOP.run_until_complete(meridian.run_async(
+        # Contract v25: what the stand-in registers is its declaration.
+        declaration=DECLARATION,
+        roles=[reader.custody, reader.reporting, reader.signal],
+    ))
 
 
 if __name__ == "__main__":
     asyncio.set_event_loop(LOOP)
-    LOOP.run_until_complete(main())
+    main()

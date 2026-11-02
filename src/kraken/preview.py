@@ -34,13 +34,13 @@ from typing import Any
 
 from meridian.edge import RawStore
 from meridian.plugin.v1 import operations_pb2 as ops
-from meridian.roles.data.pairs import Feed, ProductMap
+from meridian.roles.data.pairs import Feed, ProductMap, supervised
 from meridian.suites import Recorder
 from meridian.testing import PageClient
 
 from .convert import KrakenMarket
 from .page import hold, pages
-from .stream import Replayed, Socket, Stream
+from .stream import Replayed, Socket
 from .synthetic import Synthetic
 from .venue import Kraken
 
@@ -90,8 +90,8 @@ async def _worked() -> Feed:
     store = RawStore(Path(tempfile.mkdtemp(prefix="kraken-preview-")))
     synthetic = Synthetic()
     client = Kraken(store, transport=synthetic, clock_ns=lambda: NOW_NS)
-    feed = Feed(lake, KrakenMarket(client, "synthetic"), ProductMap(), clock_ns=lambda: NOW_NS,
-               stream_factory=Stream)  # fmt: skip
+    feed = lake.bind(Feed(KrakenMarket(client, "synthetic"), ProductMap(),
+                          clock_ns=lambda: NOW_NS, stream_factory=supervised))  # fmt: skip
     await feed.map_products()
     btc, eth = RECORDS
     for n in range(30):
@@ -104,7 +104,7 @@ async def _worked() -> Feed:
             business_date=day.isoformat(),
         )
         lake.answer("ObservationsWanted", _delivering(want))
-        await lake.receive(observations_wanted=feed.on_want)
+        await lake.hear(feed)
     for n, subject in enumerate((btc, eth)):
         want = ops.ObservationsWantedEvent(
             want_id=f"WNT-L{n}",
@@ -114,7 +114,7 @@ async def _worked() -> Feed:
             standing=True,
         )
         lake.answer("ObservationsWanted", _delivering(want))
-        await lake.receive(observations_wanted=feed.on_want)
+        await lake.hear(feed)
     first = synthetic.stream_sessions()[0]
 
     async def replayed(_: str) -> Socket:
@@ -132,8 +132,8 @@ async def _fresh() -> Feed:
     lake = Recorder("kraken")
     store = RawStore(Path(tempfile.mkdtemp(prefix="kraken-preview-")))
     client = Kraken(store, transport=Synthetic(), clock_ns=lambda: NOW_NS)
-    return Feed(lake, KrakenMarket(client, "synthetic"), ProductMap(), clock_ns=lambda: NOW_NS,
-                stream_factory=Stream)  # fmt: skip
+    return lake.bind(Feed(KrakenMarket(client, "synthetic"), ProductMap(),
+                          clock_ns=lambda: NOW_NS, stream_factory=supervised))  # fmt: skip
 
 
 def main(argv: list[str]) -> int:

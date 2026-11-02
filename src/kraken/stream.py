@@ -1,11 +1,13 @@
-"""A venue's stream: one WebSocket, spoken with the standard library, and kept
-open -- reconnected after a drop, the gap filled from the venue's history.
+"""A venue's stream: one WebSocket, spoken with the standard library.
 
-This plugin's own transport, which the SDK leaves to it (open-meridian
-0.30.0: a plugin stays able to use an API, FIX or another protocol), handed
-to the SDK's feed as its stream factory. What is said on the stream -- the
-subscription, and what each message means -- is `convert.py`'s; the socket,
-the reconnecting and the pacing are here.
+This plugin's own transport, which the SDK leaves to it (ruling 1027: the
+WebSocket code lives in each plugin), opened by the market (`convert.py`'s
+`connect`) for the SDK's feed. What is said on the stream -- the
+subscription, and what each message means -- is `convert.py`'s; the socket
+is here. Keeping it open -- reopening it after a drop or a silence, the
+wait between, the gap read back -- is the SDK's supervisor's from 0.11.0
+(`meridian.roles.data.pairs.supervised` over `helpers.sessions.Supervisor`,
+open-meridian 0.35), never a loop of the plugin's own.
 
 **The socket** (RFC 6455, client side): a TLS connection, the HTTP upgrade
 with its key checked against the answer's accept, text frames masked as a
@@ -13,14 +15,13 @@ client must, a ping answered with its pong, fragments joined, and a close
 answered. No extension is asked for, so no message arrives compressed. The
 plugin depends on nothing but the SDK, so there is no WebSocket library.
 
-**Kept open** (the plan's row 19): a stream that drops, or says nothing for
-`SILENT_SECONDS`, is opened again after a wait that doubles from one second
-to a minute, reset once a connection has stayed up a minute: inside Kraken's
-150 reconnects in ten minutes per IP, and Coinbase's. Each time it opens,
-`opened` is called before any message is read, so the plugin can fill the gap
-from the venue's REST history (the SDK's feed: the trades after the last
-one it recorded), and readers catch up from the lake by the watermark they last
-saw.
+**Kept open** (the plan's row 19), by the SDK's supervisor: a stream that
+drops, or says nothing for 30 seconds, is opened again after a wait that
+doubles from one second to a minute, within a fifth either way, reset once
+a connection has stayed up a minute: inside Kraken's 150 reconnects in ten
+minutes per IP. Each time it opens, the feed reads the gap from the venue's
+REST history (the trades after the last one it recorded), and readers catch
+up from the lake by the watermark they last saw.
 
 **Synthetic mode**: `Replayed` answers the subscription with messages shaped
 exactly as the venue sends them, then falls silent, held open, or drops as a
@@ -34,29 +35,17 @@ import asyncio
 import base64
 import contextlib
 import hashlib
-import logging
 import os
 import ssl
 import struct
-import time
 import urllib.parse
-from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass, field
-from typing import Any, Protocol
-
-log = logging.getLogger(__name__)
+from collections.abc import Sequence
+from typing import Protocol
 
 #: The WebSocket accept's suffix (RFC 6455, 1.3).
 _GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 #: The longest message read: a venue's snapshot is far shorter.
 MOST_BYTES = 16 * 1024 * 1024
-#: A stream that says nothing for this long is opened again: both venues send
-#: a heartbeat or a ticker far more often.
-SILENT_SECONDS = 30.0
-#: The wait before opening again: doubling from the first to the most.
-FIRST_WAIT, MOST_WAIT = 1.0, 60.0
-#: A connection up this long resets the wait.
-STEADY_SECONDS = 60.0
 
 
 class Closed(Exception):
@@ -71,9 +60,6 @@ class Socket(Protocol):
         ...
 
     async def close(self) -> None: ...
-
-
-Connect = Callable[[str], Awaitable[Socket]]
 
 
 class WebSocket:
@@ -213,144 +199,3 @@ class Replayed:
 
     async def close(self) -> None:
         self.closed = True
-
-
-@dataclass
-class StreamHealth:
-    """How the stream has gone since the plugin started."""
-
-    #: "off" (nothing to stream), "connecting", "open", or "waiting" to open
-    #: again.
-    state: str = "off"
-    opened: int = 0
-    dropped: int = 0
-    messages: int = 0
-    last_message_ns: int = 0
-    opened_at_ns: int = 0
-    last_error: str = ""
-    #: The venue's names the stream is subscribed to now.
-    subscribed: tuple[str, ...] = ()
-
-
-@dataclass
-class Stream:
-    """One venue stream, kept open while there is something to stream.
-
-    `subscriptions(names)` gives the texts to send for the venue's names;
-    `heard(text)` is handed each message; `opened(names)` is called each time
-    the stream opens, before any message is read."""
-
-    address: str
-    connect: Connect
-    subscriptions: Callable[[Sequence[str]], list[str]]
-    heard: Callable[[str], Awaitable[None]]
-    opened: Callable[[Sequence[str]], Awaitable[None]]
-    clock_ns: Callable[[], int] = time.time_ns
-    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
-    silent_seconds: float = SILENT_SECONDS
-    health: StreamHealth = field(default_factory=StreamHealth)
-    _wanted: tuple[str, ...] = ()
-    _changed: asyncio.Event = field(default_factory=asyncio.Event)
-
-    def retarget(
-        self, address: str, connect: Connect, subscriptions: Callable[[Sequence[str]], list[str]]
-    ) -> None:
-        """Stream from another source (synthetic mode switched): reopened."""
-        self.address, self.connect, self.subscriptions = address, connect, subscriptions
-        self._changed.set()
-
-    def want(self, names: Sequence[str]) -> None:
-        """Stream these of the venue's names; nothing, to close it."""
-        wanted = tuple(sorted(set(names)))
-        if wanted != self._wanted:
-            self._wanted = wanted
-            self._changed.set()
-
-    async def run(self, once: bool = False) -> None:
-        """Keep the stream open while anything is wanted, until cancelled; with
-        `once`, open it once and return when it closes."""
-        wait = FIRST_WAIT
-        while True:
-            if not self._wanted:
-                self.health.state, self.health.subscribed = "off", ()
-                if once:
-                    return
-                self._changed.clear()
-                await self._changed.wait()
-                continue
-            started = time.monotonic()
-            changed = await self._session()
-            if once:
-                return
-            if changed:
-                wait = FIRST_WAIT
-                continue
-            wait = FIRST_WAIT if time.monotonic() - started >= STEADY_SECONDS else wait
-            self.health.state = "waiting"
-            await self.sleep(wait)
-            wait = min(wait * 2, MOST_WAIT)
-
-    async def _session(self) -> bool:
-        """One connection, until it closes; whether the names wanted changed."""
-        names = self._wanted
-        self._changed.clear()
-        self.health.state = "connecting"
-        try:
-            socket = await self.connect(self.address)
-        except (OSError, Closed, ValueError, TimeoutError) as failed:
-            self.health.last_error = f"not opened: {failed}"[:200]
-            log.warning("the stream at %s did not open: %s", self.address, failed)
-            return False
-        self.health.opened += 1
-        self.health.opened_at_ns = self.clock_ns()
-        self.health.state, self.health.subscribed = "open", names
-        try:
-            for subscription in self.subscriptions(names):
-                await socket.send(subscription)
-            await self._said(self.opened, names)
-            while not self._changed.is_set():
-                text = await self._next(socket)
-                if text is None:
-                    break
-                self.health.messages += 1
-                self.health.last_message_ns = self.clock_ns()
-                await self._said(self.heard, text)
-        except Closed as dropped:
-            self.health.dropped += 1
-            self.health.last_error = str(dropped)[:200]
-            log.warning("the stream at %s dropped: %s", self.address, dropped)
-        finally:
-            await socket.close()
-            self.health.state = "waiting"
-        return self._changed.is_set()
-
-    async def _said(self, handler: Callable[[Any], Awaitable[None]], given: Any) -> None:
-        """A handler's failure said, never the stream's end: the next message
-        is read all the same."""
-        try:
-            await handler(given)
-        except Exception as failed:  # noqa: BLE001 - said; the stream goes on
-            self.health.last_error = f"not handled: {failed}"[:200]
-            log.warning("a message of the stream at %s not handled: %s", self.address, failed)
-
-    async def _next(self, socket: Socket) -> str | None:
-        """The next message; None where the wanted names changed (opened again
-        with the new ones); `Closed` after `silent_seconds` of nothing, where
-        it is not 0 (a replay, which is silent once it has said everything)."""
-        receiving = asyncio.ensure_future(socket.receive())
-        changed = asyncio.ensure_future(self._changed.wait())
-        try:
-            done, _ = await asyncio.wait(
-                {receiving, changed}, timeout=self.silent_seconds or None,
-                return_when=asyncio.FIRST_COMPLETED,
-            )  # fmt: skip
-        finally:
-            changed.cancel()
-        if receiving in done:
-            return receiving.result()
-        receiving.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Closed):
-            await receiving
-        if changed in done or self._changed.is_set():
-            return None
-        raise Closed(f"silent for {self.silent_seconds:g} seconds")
