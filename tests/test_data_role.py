@@ -37,8 +37,9 @@ async def heartbeat_only(recorder: Recorder) -> int:
     own answer made before the stream opened."""
     v = venue_cases
     store = Instruments().answering(recorder)
-    feed = pairs.Feed(recorder, v.market(v.NOW_NS), pairs.ProductMap(),
-                      clock_ns=lambda: v.NOW_NS, stream_factory=v.STREAM)  # fmt: skip
+    feed = recorder.bind(pairs.Feed(v.market(v.NOW_NS), pairs.ProductMap(),
+                                    clock_ns=lambda: v.NOW_NS,
+                                    stream_factory=v.STREAM))  # fmt: skip
     subject = await held(store, feed, v.BASE)
     await hear(recorder, feed, ops.ObservationsWantedEvent(
         want_id="WNT-L", dataset=feed.dataset(pairs.LIVE), data_type=QUOTE,

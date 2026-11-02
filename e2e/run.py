@@ -264,7 +264,8 @@ def run():
     stable = by_product.get(STABLE_PRODUCT, {"instrument_id": usdc, "currency_code": ""})
     must(stable["instrument_id"] == usdc and stable["currency_code"] == "",
          f"step 4, a USDC price on USDC's own instrument, never a currency: {stable}")
-    # Followed: the reader's receive reads what the lake holds for BTC, and
+    # Followed: the reader's stream, opened again naming BTC, reads what the
+    # lake holds for it (its role classes seed, SDK 0.35), and
     # its latest on each dataset is asked of the plugin -- the daily
     # dataset's being the past week's days.
     read(f"/follow?subject={btc}")

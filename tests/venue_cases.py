@@ -22,11 +22,11 @@ from pathlib import Path
 from typing import Any
 
 from meridian.edge import RawStore
-from meridian.roles.data.pairs import TAKER, Feed, Market
+from meridian.roles.data.pairs import TAKER, Feed, Market, supervised
 
 from kraken import page
 from kraken.convert import KrakenMarket
-from kraken.stream import Replayed, Socket, Stream
+from kraken.stream import Replayed, Socket
 from kraken.synthetic import Synthetic
 from kraken.venue import Kraken, RateLimiter
 
@@ -35,8 +35,8 @@ __all__ = ["page"]
 PACKAGE = Path(__file__).parent.parent / "src" / "kraken"
 #: The plugin's own modules no float may reach.
 CONVERSION = (PACKAGE / "convert.py", PACKAGE / "synthetic.py")
-#: The plugin's stream: its own session over its own transport.
-STREAM = Stream
+#: The plugin's stream: the SDK's supervisor over its own socket (0.35).
+STREAM = supervised
 
 SYNTHETIC = PACKAGE / "synthetic"
 

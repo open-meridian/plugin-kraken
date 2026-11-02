@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.11.0
+
+On open-meridian 0.35.1, contract v29 (rulings 1003, 1004, 1005, 1009 to
+1029), on core v29's harness.
+
+- **One class for its role** (open-meridian 0.35: each role is one class). The
+  data role's work is `Lake`, the SDK's `pairs.Feed` over Kraken's
+  conversion, registered with `meridian.run`, which applies the first
+  settings (`Lake.on_settings`: sample data switched, the synthetic product
+  map made, the raw store tended) before anything is heard and watches them
+  again should their stream break, serves the pages, sets the figures on each
+  heartbeat, hands what the lake wants to the class and starts `Lake.run` --
+  the feed's wants kept current and its stream kept open, the rows' ages
+  reported (`Latency`, now given the role object), and the plugin's health
+  -- again after a backoff should it fail. The tasks and the process exit it
+  wired by hand are gone.
+- **The stream kept open by the SDK** (ruling 1027): the plugin's own
+  reconnecting loop (`stream.Stream`, `StreamHealth`) is gone; the SDK's
+  `pairs.supervised` (`helpers.sessions.Supervisor`) keeps the stream open
+  over the plugin's own WebSocket, reopening it after a drop or 30 seconds'
+  silence with a wait doubling from one second to a minute, jittered, and
+  reading the gap back as before. The Connection page's Stream section reads
+  the supervisor's session.
+- **`meridian plugin migrate --to 0.35.1`** moved the pins and rewrote the
+  feed's construction (the connection no longer given to it), the preview's
+  and the tests' hearing (`Recorder.bind`, `Recorder.hear`). The entry point,
+  the stream factory and the e2e's reader (three role classes -- `custody`,
+  `reporting`, `signal` -- on `meridian.run_async`, its acts made through
+  them) were moved by hand.
+- **The pins:** open-meridian 0.35.1 and plugin-python:0.35.1 by tag and
+  digest (`sha256:cdc92bc9...71a9b614`); core's runtime and harness
+  `1ae36f0` (merged as 3f99222, chart 0.1.339) by digest; meridian 0.1.56
+  in check.yaml.
+
 ## 0.10.1
 
 SDK 0.33.4: raw-record writes and enum conversion fixes (ruling 937).
