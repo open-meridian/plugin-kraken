@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.12.0
+
+On open-meridian 0.36.0, contract 30, on core aae501d's harness (contract v30,
+chart 0.1.538).
+
+- **Kraken's terms in words** (ruling 1032): `licence_default` is gone from
+  the contract. `meridian plugin migrate --to 0.36.0` wrote each licence as
+  words ("Kept by the lake; kept 2 days at most; display allowed; one person's terms."), which
+  said what the lake did; each dataset now describes Kraken's terms
+  (`declared.TERMS`): free, no key; Kraken's prior permission for any
+  non-personal commercial use of its public endpoints' data, without which
+  it is one person's own use. The plugin declares no
+  licence: until a deployment admin sets one on Data sources, the lake keeps
+  the rows and reads every use right restrictively.
+- **How a gap is recovered** (W10.14): `daily` and `trades` are `backfill`
+  (Kraken serves OHLC, 720 days, and trades back in time), `live` `stream_only`.
+  No sessions calendar (Kraken trades around the clock), no `most_shards`.
+- **Pins**: open-meridian 0.36.0 and its base by digest; meridian 0.1.60 in
+  the check workflow; core's runtime and harness at `aae501d`, by digest.
+
 ## 0.11.0
 
 On open-meridian 0.35.1, contract v29 (rulings 1003, 1004, 1005, 1009 to

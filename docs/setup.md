@@ -8,15 +8,13 @@ storage for its raw responses, and no key.
 ## 2. License its datasets
 
 On the dashboard's **Data sources** page, each of the plugin's three datasets
-is listed with the terms Kraken's standard terms impose:
-
-- `<instance>:daily`: kept, for one person's use.
-- `<instance>:live`: kept two days, for one person's use.
-- `<instance>:trades`: kept two days, for one person's use.
-
-Kraken asks its permission for any non-personal commercial use; with one
-person's terms, the page warns when more than one person reads a plugin
-entitled to the dataset.
+-- `<instance>:daily`, `<instance>:live` and `<instance>:trades` -- is listed
+with Kraken's terms described in words. The plugin declares no licence.
+Kraken asks its permission for any non-personal commercial use; without it,
+license each dataset with one person's terms (two days kept suits `live`
+and `trades`), and the page warns when more than one person reads a plugin
+entitled to it. Until a licence is set, the lake keeps the rows and reads
+every use right restrictively.
 
 Confirm or change each licence there, with a note saying why. What you enter
 is what your deployment records; it is not a statement that your use meets
