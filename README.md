@@ -13,21 +13,21 @@ It is one of the lake's crypto pair, with
 [meridian-coinbase](https://github.com/open-meridian/plugin-coinbase): each runs the SDK's
 data suite and its checks for a pairs venue unchanged against its own conversion
 (meridian-design `plans/the-lake-prices-the-book.md`, rows 6 and 19); what the two do alike is
-the SDK's (`meridian.roles.data.pairs`, open-meridian 0.35.1), never copied
+the SDK's (`meridian.roles.data.pairs`, open-meridian 0.36.0), never copied
 between them.
 
-**Status.** 0.11.0, built on open-meridian 0.35.1 (contract v29; from 0.11.0 its work is one class for its role, `Lake` -- the SDK's pairs feed -- registered with `meridian.run`, its stream kept open by the SDK's supervisor; contract v28: its feed delay reported, a crossed quote recorded invalid at the edge; contract v27: the stream's liveness recorded; the data suite's v27 cases; the book's depth kept raw, open question 232; its work the SDK's role helpers), holding the
+**Status.** 0.12.0, built on open-meridian 0.36.0 (contract 30: each dataset describes Kraken's terms in words and how a gap in it is recovered, no licence declared; contract v29: from 0.11.0 its work is one class for its role, `Lake` -- the SDK's pairs feed -- registered with `meridian.run`, its stream kept open by the SDK's supervisor; contract v28: its feed delay reported, a crossed quote recorded invalid at the edge; contract v27: the stream's liveness recorded; the data suite's v27 cases; the book's depth kept raw, open question 232; its work the SDK's role helpers), holding the
 role `data`.
 
 ## What it does
 
 Three datasets, declared from code in its catalogue (`declaration.py`):
 
-| Dataset | Data | Modes | Day | Kraken's standard terms |
+| Dataset | Data | Modes | Day | A gap in it |
 |---|---|---|---|---|
-| `<instance>:daily` | a close and a bar per pair per day, with its volume-weighted price and trade count; 720 days back | pull, push | `Etc/UTC`, ending at 00:00 | kept, one person's |
-| `<instance>:live` | the last trade's price and the best bid and offer, as prices; the best bid and offer with their sizes, as a quote | pull, stream | `Etc/UTC`, ending at 00:00 | kept two days, one person's |
-| `<instance>:trades` | every trade | pull, stream | `Etc/UTC`, ending at 00:00 | kept two days, one person's |
+| `<instance>:daily` | a close and a bar per pair per day, with its volume-weighted price and trade count; 720 days back | pull, push | `Etc/UTC`, ending at 00:00 | asked again of Kraken's OHLC (`backfill`) |
+| `<instance>:live` | the last trade's price and the best bid and offer, as prices; the best bid and offer with their sizes, as a quote | pull, stream | `Etc/UTC`, ending at 00:00 | not fetched again (`stream_only`) |
+| `<instance>:trades` | every trade | pull, stream | `Etc/UTC`, ending at 00:00 | asked again of Kraken's trade history (`backfill`) |
 
 - **What the lake wants, recorded.** A reader reads a price nothing has
   recorded; the lake asks this plugin (a want), which records it against the
@@ -194,11 +194,13 @@ Three datasets, declared from code in its catalogue (`declaration.py`):
 A summary, not legal advice; read the terms themselves before relying on
 them. Kraken asks its prior permission (marketdata@kraken.com) for "any
 non-personal commercial use of data from publicly accessible endpoints".
-Without it, a deployment keeps Kraken's data for one person's own use. The
-catalogue's standard terms say so (kept, one person's), and a deployment
-admin confirms or replaces them in the deployment's licence on the Data
-sources page, which warns where more than one person reads a plugin entitled
-to it. Nothing here says that a deployment meets Kraken's terms.
+Without it, Kraken's data is for one person's own use. From contract 30
+(ruling 1032) each dataset says so in words (`declared.TERMS`), shown on
+Data sources, and declares no licence: a deployment admin sets the
+deployment's licence there -- one person's terms where Kraken has not given
+its permission, which has the page warn where more than one person reads a
+plugin entitled to it; until one is set, the lake keeps the rows and reads
+every use right restrictively. Nothing here says that a deployment meets Kraken's terms.
 
 So **no real Kraken response is committed** to this public repository: the
 tests and sample data use synthetic exchanges (`src/kraken/synthetic/`),

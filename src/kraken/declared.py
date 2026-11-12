@@ -12,18 +12,25 @@ plugin upload`:
   most once a second per subject and kind, pulled for the latest or kept
   current for a standing want; and from contract v19 the best bid and offer
   with their sizes as a quote, kept current from the venue's stream while a
-  standing want stands; kept two days.
+  standing want stands.
 - `trades` (contract v19): every trade, from the venue's stream for the
   subjects under a standing want, or from its REST history for a range
   wanted; declared apart from the live prices, so an admin licenses and
-  keeps them apart (the plan's Q40), kept two days.
+  keeps them apart (the plan's Q40).
 
-Each licence is what Kraken's standard terms say, which the deployment's
-licence confirms or replaces, never whether a deployment meets them: Kraken
-asks its prior permission for "any non-personal commercial use of data from
+**Its terms and pricing** (contract 30, ruling 1032): no dataset declares a
+licence. Each describes Kraken's terms in plain words (`TERMS`): Kraken asks
+its prior permission for "any non-personal commercial use of data from
 publicly accessible endpoints", so its data is one person's without that
-permission, kept for that person's own use (README, "Kraken's terms"; not
-legal advice). `daily` reaches back 720 days, the most `OHLC` gives.
+permission (README, "Kraken's terms"; not legal advice). The deployment
+admin sets the deployment's licence on the Data sources page, which is the
+one enforced. `daily` reaches back 720 days, the most `OHLC` gives.
+
+**How a gap is recovered** (W10.14): `daily` and `trades` are `backfill` --
+Kraken serves OHLC and trades back in time, and a want of a range is
+answered from them; `live` is `stream_only` -- a ticker or a book as it
+stood is not served again. No dataset names a sessions calendar: Kraken
+trades around the clock.
 
 `venue_id` is empty: the venue master's ID for Kraken (which has no MIC) is minted by
 the platform, not known to the code a catalogue is declared from, so each row
@@ -39,7 +46,7 @@ Kraken's public market data needs no key.
 """
 
 import meridian
-from meridian import DatasetDeclaration, DatasetLicence
+from meridian import DatasetDeclaration
 
 VENDOR = "Kraken"
 SAMPLE_DATA = "sample_data"
@@ -63,6 +70,15 @@ SETTINGS = [
     ),
 ]
 
+#: Kraken's published terms, in plain words (ruling 1032): the same for each
+#: dataset, all from Kraken's public endpoints.
+TERMS = (
+    "Kraken's public market data (REST and WebSocket): free, no key or account. Kraken asks "
+    "its prior permission, at marketdata@kraken.com, for any non-personal commercial use of "
+    "data from its publicly accessible endpoints; without it, the data is for one person's "
+    "own use. Kraken's daily OHLC reaches back 720 days."
+)
+
 CATALOGUE = [
     DatasetDeclaration(
         key="daily",
@@ -76,9 +92,8 @@ CATALOGUE = [
         modes=["pull", "push"],
         cadence=86_400,
         history=720,
-        licence_default=DatasetLicence(
-            kept=True, derived_use=True, display=True, personal_use=True
-        ),
+        terms_and_pricing=TERMS,
+        gap_recovery="backfill",
         day_time_zone="Etc/UTC",
         day_end_minute=0,
     ),
@@ -89,9 +104,8 @@ CATALOGUE = [
         modes=["pull", "stream"],
         cadence=1,
         history=0,
-        licence_default=DatasetLicence(
-            kept=True, retention_days=2, display=True, personal_use=True
-        ),
+        terms_and_pricing=TERMS,
+        gap_recovery="stream_only",
         day_time_zone="Etc/UTC",
         day_end_minute=0,
     ),
@@ -102,9 +116,8 @@ CATALOGUE = [
         modes=["pull", "stream"],
         cadence=1,
         history=0,
-        licence_default=DatasetLicence(
-            kept=True, retention_days=2, display=True, personal_use=True
-        ),
+        terms_and_pricing=TERMS,
+        gap_recovery="backfill",
         day_time_zone="Etc/UTC",
         day_end_minute=0,
     ),

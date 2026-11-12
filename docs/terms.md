@@ -9,10 +9,10 @@ Kraken asks its prior permission, at marketdata@kraken.com, for any
 non-personal commercial use of the data from its public endpoints. Without
 that permission, Kraken's data is for one person's own use.
 
-The plugin's datasets declare those standard terms (kept, one person's), and
-your deployment's licence on the Data sources page confirms or replaces them;
-the page warns when more than one person reads a plugin entitled to a
-dataset whose terms are one person's. The plugin and its documentation never
+Each of the plugin's datasets describes those terms in words on the Data
+sources page, and declares no licence: your deployment's licence there is
+the one enforced, and the page warns when more than one person reads a
+plugin entitled to a dataset licensed on one person's terms. The plugin and its documentation never
 say that a deployment meets Kraken's terms.
 
 ## Your due diligence
