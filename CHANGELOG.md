@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1
+
+SDK 0.37.0: waits for a lost sidecar.
+
+SDK 0.37.1: a raw record kept from two threads at once waits instead of being dropped.
+
 ## 0.12.0
 
 On open-meridian 0.36.0, contract 30, on core aae501d's harness (contract v30,
