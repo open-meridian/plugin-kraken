@@ -27,4 +27,5 @@ jobs:
         with:
           name: e2e-latest-logs
           path: .e2e/*.log
+          include-hidden-files: true
           if-no-files-found: ignore

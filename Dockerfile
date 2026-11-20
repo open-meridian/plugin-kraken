@@ -10,7 +10,7 @@
 # `make image` builds plugin-python:<version>-local from the sibling
 # meridian-python while that version is not published.
 # The release by its tag and its digest, the image exactly; move both together.
-ARG BASE=ghcr.io/open-meridian/plugin-python:0.37.0@sha256:7c73bd9145ee048e47e990954e21f1452bc051bb75ce06ac38cfca06503b3820
+ARG BASE=ghcr.io/open-meridian/plugin-python:0.37.1@sha256:cb612e16262390c5dc71ee976731bd74d2c693455aef788ab36fcfd3d16291c2
 FROM ${BASE}
 WORKDIR /plugin
 # Installed from a mount rather than copied, so the image holds the installed
